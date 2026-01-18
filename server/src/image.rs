@@ -6,8 +6,8 @@ pub fn generate_overlay_png(pixels: &[PixelData]) -> Vec<u8> {
     let mut img = ImageBuffer::<Rgba<u8>, Vec<u8>>::new(64, 64);
 
     for pixel in pixels {
-        let x = pixel.condinate.x.round() as i32;
-        let y = pixel.condinate.y.round() as i32;
+        let x = pixel.coordinate.x;
+        let y = pixel.coordinate.y;
         let r = pixel.pixel.r;
         let g = pixel.pixel.g;
         let b = pixel.pixel.b;

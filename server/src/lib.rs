@@ -38,10 +38,6 @@ pub struct Chunk {
     pub pixels: [[Pixel; 64]; 64],
 }
 
-pub struct Chunk {
-    pub pixels: [[Pixel; 64]; 64],
-}
-
 #[post("/draw", format = "json", data = "<pixel_data>")]
 pub fn draw(pixel_data: Json<PixelData>) -> Result<(), SynchronizerError > {
     let mut synchronizer = Synchronizer::new("/tmp/chunk_data".as_ref());
