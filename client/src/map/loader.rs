@@ -4,10 +4,18 @@ use std::collections::HashSet;
 
 use super::tile::TileId;
 
+/// Decoded tile image data ready for GPU upload
+#[derive(Debug)]
+pub struct DecodedTileData {
+    pub rgba: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+}
+
 /// Result of a tile load operation
 #[derive(Debug)]
 pub enum TileLoadResult {
-    Success(TileId, Vec<u8>),
+    Success(TileId, DecodedTileData),
     Failed(TileId, String),
 }
 
@@ -147,7 +155,7 @@ impl TileLoader {
         self.pending.len()
     }
 
-    // Native implementation
+    // Native implementation - decode images in background thread
     #[cfg(not(target_arch = "wasm32"))]
     fn worker_thread(
         request_rx: std::sync::mpsc::Receiver<TileRequest>,
@@ -164,7 +172,27 @@ impl TileLoader {
                 Ok(response) => {
                     if response.status().is_success() {
                         match response.bytes() {
-                            Ok(bytes) => TileLoadResult::Success(request.tile_id, bytes.to_vec()),
+                            Ok(bytes) => {
+                                // Decode in background thread to avoid blocking main thread
+                                match image::load_from_memory(&bytes) {
+                                    Ok(img) => {
+                                        let rgba = img.to_rgba8();
+                                        let (width, height) = rgba.dimensions();
+                                        TileLoadResult::Success(
+                                            request.tile_id,
+                                            DecodedTileData {
+                                                rgba: rgba.into_raw(),
+                                                width,
+                                                height,
+                                            },
+                                        )
+                                    }
+                                    Err(e) => TileLoadResult::Failed(
+                                        request.tile_id,
+                                        format!("Decode error: {}", e),
+                                    ),
+                                }
+                            }
                             Err(e) => TileLoadResult::Failed(request.tile_id, e.to_string()),
                         }
                     } else {
@@ -183,7 +211,7 @@ impl TileLoader {
         }
     }
 
-    // WASM implementation using web-sys fetch API
+    // WASM implementation using web-sys fetch API - decode in async context
     #[cfg(target_arch = "wasm32")]
     fn spawn_wasm_fetch(&self, request: TileRequest) {
         use wasm_bindgen::JsCast;
@@ -240,9 +268,28 @@ impl TileLoader {
             }
             .await;
 
-            // Store result in shared buffer
+            // Decode image in async context (off main thread)
             let tile_result = match result {
-                Ok(bytes) => TileLoadResult::Success(request.tile_id, bytes),
+                Ok(bytes) => {
+                    match image::load_from_memory(&bytes) {
+                        Ok(img) => {
+                            let rgba = img.to_rgba8();
+                            let (width, height) = rgba.dimensions();
+                            TileLoadResult::Success(
+                                request.tile_id,
+                                DecodedTileData {
+                                    rgba: rgba.into_raw(),
+                                    width,
+                                    height,
+                                },
+                            )
+                        }
+                        Err(e) => TileLoadResult::Failed(
+                            request.tile_id,
+                            format!("Decode error: {}", e),
+                        ),
+                    }
+                }
                 Err(err) => TileLoadResult::Failed(request.tile_id, err),
             };
 
@@ -255,6 +302,8 @@ impl TileLoader {
 
 impl Default for TileLoader {
     fn default() -> Self {
-        Self::new("CPlace/0.1 (https://github.com/antegral/cplace)")
+        Self::new(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        )
     }
 }

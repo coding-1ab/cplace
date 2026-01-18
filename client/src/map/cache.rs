@@ -111,6 +111,6 @@ pub struct CacheStats {
 impl Default for TileCache {
     fn default() -> Self {
         // Default: 256 tiles, 64MB max
-        Self::new(256, 64 * 1024 * 1024)
+        Self::new(2048, 64 * 1024 * 1024 * 8)
     }
 }

@@ -57,6 +57,9 @@ impl MapSystem {
 
     /// Update the map system (call each frame)
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        // Maximum tiles to process per frame to avoid UI freeze
+        const MAX_TILES_PER_FRAME: usize = 2;
+
         // 1. Get visible tiles
         let visible = self.camera.visible_tiles();
 
@@ -67,23 +70,21 @@ impl MapSystem {
             }
         }
 
-        // 3. Process completed loads
-        while let Some(result) = self.tile_loader.poll() {
-            match result {
-                TileLoadResult::Success(id, data) => {
-                    match self.tile_renderer.create_cached_tile(device, queue, &data) {
-                        Ok(cached) => {
-                            log::debug!("Loaded tile {:?}", id);
-                            self.tile_cache.insert(id, cached);
-                        }
-                        Err(e) => {
-                            log::warn!("Failed to decode tile {:?}: {}", id, e);
-                        }
-                    }
+        // 3. Process completed loads with frame budget
+        let mut tiles_processed = 0;
+        while tiles_processed < MAX_TILES_PER_FRAME {
+            match self.tile_loader.poll() {
+                Some(TileLoadResult::Success(id, decoded)) => {
+                    let cached = self.tile_renderer.create_cached_tile(device, queue, &decoded);
+                    log::debug!("Loaded tile {:?}", id);
+                    self.tile_cache.insert(id, cached);
+                    tiles_processed += 1;
                 }
-                TileLoadResult::Failed(id, err) => {
+                Some(TileLoadResult::Failed(id, err)) => {
                     log::warn!("Failed to load tile {:?}: {}", id, err);
+                    tiles_processed += 1;
                 }
+                None => break,
             }
         }
 

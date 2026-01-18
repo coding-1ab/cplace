@@ -5,6 +5,7 @@ use wgpu::include_wgsl;
 use wgpu::util::DeviceExt;
 
 use super::cache::{CachedTile, TileCache};
+use super::loader::DecodedTileData;
 use super::tile::TileId;
 
 /// Vertex for tile rendering
@@ -139,22 +140,18 @@ impl TileRenderer {
         }
     }
 
-    /// Create a cached tile from image data
+    /// Create a cached tile from pre-decoded image data (GPU upload only)
     pub fn create_cached_tile(
         &self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        image_data: &[u8],
-    ) -> Result<CachedTile, image::ImageError> {
-        let img = image::load_from_memory(image_data)?;
-        let rgba = img.to_rgba8();
-        let (width, height) = rgba.dimensions();
-
+        decoded: &DecodedTileData,
+    ) -> CachedTile {
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Map Tile Texture"),
             size: wgpu::Extent3d {
-                width,
-                height,
+                width: decoded.width,
+                height: decoded.height,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -172,15 +169,15 @@ impl TileRenderer {
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            &rgba,
+            &decoded.rgba,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(4 * width),
-                rows_per_image: Some(height),
+                bytes_per_row: Some(4 * decoded.width),
+                rows_per_image: Some(decoded.height),
             },
             wgpu::Extent3d {
-                width,
-                height,
+                width: decoded.width,
+                height: decoded.height,
                 depth_or_array_layers: 1,
             },
         );
@@ -202,14 +199,14 @@ impl TileRenderer {
             ],
         });
 
-        let memory_size = (width * height * 4) as usize;
+        let memory_size = (decoded.width * decoded.height * 4) as usize;
 
-        Ok(CachedTile {
+        CachedTile {
             texture,
             texture_view,
             bind_group,
             memory_size,
-        })
+        }
     }
 
     /// Render visible tiles

@@ -1,11 +1,11 @@
+use crate::app::App;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use winit::event_loop::EventLoop;
-use crate::app::App;
 
-mod state;
 mod app;
 mod map;
+mod state;
 
 pub fn run() -> anyhow::Result<()> {
     #[cfg(not(target_arch = "wasm32"))]
@@ -15,13 +15,13 @@ pub fn run() -> anyhow::Result<()> {
     #[cfg(target_arch = "wasm32")]
     {
         console_log::init_with_level(log::Level::Info).unwrap_throw();
-        info!("Starting...");
+        // info!("Starting...");
     }
 
     let event_loop = EventLoop::with_user_event().build()?;
     let mut app = App::new(
         #[cfg(target_arch = "wasm32")]
-        &event_loop
+        &event_loop,
     );
     event_loop.run_app(&mut app)?;
 
@@ -36,4 +36,3 @@ pub fn run_web() -> Result<(), JsValue> {
 
     Ok(())
 }
-
