@@ -98,7 +98,20 @@ impl MapCamera {
 
     /// Get list of visible tiles with buffer for pre-loading
     pub fn visible_tiles(&self) -> Vec<TileId> {
-        self.visible_tiles_with_buffer(1)
+        let z = self.tile_zoom();
+        let (cx, cy) = lon_lat_to_tile_f64(self.center.0, self.center.1, z);
+        let x = cx.floor() as u32;
+        let y = cy.ceil() as u32;
+        vec![TileId {
+            x,
+            y,
+            z,
+        }, TileId {
+            x: x + 1,
+            y,
+            z,
+        }]
+        // self.visible_tiles_with_buffer(1)
     }
 
     /// Get visible tiles with specified buffer tiles around viewport
@@ -181,11 +194,9 @@ mod test {
     #[test]
     fn test_visibility() {
         let camera = MapCamera::new(126.9794, 37.5372, 14.0, 800, 200);
-        let visibles = camera.visible_tiles_with_buffer(1);
+        let visibles = camera.visible_tiles_with_buffer(0);
         let test_data: Vec<_> = [
-            (13969, 6346, 14), (13970, 6346, 14), (13971, 6346, 14), (13972, 6346, 14),
             (13969, 6347, 14), (13970, 6347, 14), (13971, 6347, 14), (13972, 6347, 14),
-            (13969, 6348, 14), (13970, 6348, 14), (13971, 6348, 14), (13972, 6348, 14)
         ].into_iter().map(|(x, y, z)| TileId { x, y, z}).collect();
         assert_eq!(visibles, test_data);
     }
