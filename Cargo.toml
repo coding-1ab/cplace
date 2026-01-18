@@ -4,4 +4,4 @@ members = ["server", "client"]
 
 [workspace.dependencies]
 lru = "0.16.3"
-arrayvec = { workspace = true }
+arrayvec = "0.7.6"
