@@ -26,7 +26,6 @@ type RequestSender = std::sync::mpsc::Sender<TileRequest>;
 
 #[cfg(target_arch = "wasm32")]
 use std::sync::{Arc, Mutex};
-use log::debug;
 
 #[cfg(target_arch = "wasm32")]
 type ResultReceiver = Arc<Mutex<Vec<TileLoadResult>>>;
@@ -39,6 +38,7 @@ pub struct TileLoader {
     #[cfg(not(target_arch = "wasm32"))]
     request_tx: RequestSender,
     pending: HashSet<TileId>,
+    #[cfg(target_arch = "wasm32")]
     user_agent: String,
     #[cfg(not(target_arch = "wasm32"))]
     _worker_handle: Option<std::thread::JoinHandle<()>>,
@@ -63,7 +63,6 @@ impl TileLoader {
                 result_rx,
                 request_tx,
                 pending: HashSet::new(),
-                user_agent: user_agent.to_string(),
                 _worker_handle,
             }
         }
@@ -148,11 +147,6 @@ impl TileLoader {
         self.pending.len()
     }
 
-    /// Cancel all pending requests (tiles will still complete but be ignored)
-    pub fn clear_pending(&mut self) {
-        self.pending.clear();
-    }
-
     // Native implementation
     #[cfg(not(target_arch = "wasm32"))]
     fn worker_thread(
@@ -170,12 +164,8 @@ impl TileLoader {
                 Ok(response) => {
                     if response.status().is_success() {
                         match response.bytes() {
-                            Ok(bytes) => {
-                                TileLoadResult::Success(request.tile_id, bytes.to_vec())
-                            }
-                            Err(e) => {
-                                TileLoadResult::Failed(request.tile_id, e.to_string())
-                            }
+                            Ok(bytes) => TileLoadResult::Success(request.tile_id, bytes.to_vec()),
+                            Err(e) => TileLoadResult::Failed(request.tile_id, e.to_string()),
                         }
                     } else {
                         TileLoadResult::Failed(
@@ -196,8 +186,8 @@ impl TileLoader {
     // WASM implementation using web-sys fetch API
     #[cfg(target_arch = "wasm32")]
     fn spawn_wasm_fetch(&self, request: TileRequest) {
-        use wasm_bindgen::prelude::*;
         use wasm_bindgen::JsCast;
+        use wasm_bindgen::prelude::*;
         use wasm_bindgen_futures::JsFuture;
         use web_sys::{Request, RequestInit, RequestMode, Response};
 
@@ -267,15 +257,4 @@ impl Default for TileLoader {
     fn default() -> Self {
         Self::new("CPlace/0.1 (https://github.com/antegral/cplace)")
     }
-}
-
-/// Create GPU texture from image bytes
-pub fn decode_tile_image(data: &[u8]) -> Result<image::RgbaImage, image::ImageError> {
-    let img = image::load_from_memory(data)?;
-    Ok(img.to_rgba8())
-}
-
-/// Calculate memory size for a tile texture
-pub fn tile_memory_size(width: u32, height: u32) -> usize {
-    (width * height * 4) as usize // RGBA8 = 4 bytes per pixel
 }

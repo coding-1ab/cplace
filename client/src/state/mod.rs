@@ -241,7 +241,7 @@ impl State {
                     "Cache: {}/{} ({:.0}%)",
                     cache_stats.tile_count,
                     cache_stats.max_tiles,
-                    cache_stats.tile_usage_percent()
+                    (cache_stats.tile_count as f32 / cache_stats.max_tiles as f32) * 100.0
                 ));
                 if pending > 0 {
                     ui.separator();

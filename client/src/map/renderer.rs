@@ -1,7 +1,6 @@
 //! wgpu tile renderer with texture management
 
 use bytemuck::{Pod, Zeroable};
-use log::debug;
 use wgpu::include_wgsl;
 use wgpu::util::DeviceExt;
 
@@ -210,7 +209,6 @@ impl TileRenderer {
             texture_view,
             bind_group,
             memory_size,
-            created_at: web_time::Instant::now(),
         })
     }
 

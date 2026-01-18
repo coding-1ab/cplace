@@ -49,11 +49,6 @@ pub struct GridCoord {
     pub y: i64,
 }
 
-impl GridCoord {
-    pub fn new(x: i64, y: i64) -> Self {
-        Self { x, y }
-    }
-}
 
 /// Pixel grid overlay system
 pub struct PixelGrid {
@@ -130,47 +125,11 @@ impl PixelGrid {
         }
     }
 
-    /// Set a pixel at grid coordinates
-    pub fn set_pixel(&mut self, coord: GridCoord, color: [f32; 4]) {
-        self.pixels.insert(coord, Pixel { color });
-        self.dirty = true;
-    }
-
-    /// Get a pixel at grid coordinates
-    pub fn get_pixel(&self, coord: &GridCoord) -> Option<&Pixel> {
-        self.pixels.get(coord)
-    }
-
-    /// Remove a pixel
-    pub fn remove_pixel(&mut self, coord: &GridCoord) -> Option<Pixel> {
-        self.dirty = true;
-        self.pixels.remove(coord)
-    }
-
-    /// Clear all pixels
-    pub fn clear(&mut self) {
-        self.pixels.clear();
-        self.dirty = true;
-    }
-
-    /// Convert world coordinates (lon, lat) to grid coordinates
-    pub fn world_to_grid(&self, lon: f64, lat: f64) -> GridCoord {
-        GridCoord {
-            x: (lon / self.cell_size).floor() as i64,
-            y: (lat / self.cell_size).floor() as i64,
-        }
-    }
-
     /// Convert grid coordinates to world coordinates (center of cell)
-    pub fn grid_to_world(&self, coord: &GridCoord) -> (f64, f64) {
+    fn grid_to_world(&self, coord: &GridCoord) -> (f64, f64) {
         let lon = (coord.x as f64 + 0.5) * self.cell_size;
         let lat = (coord.y as f64 + 0.5) * self.cell_size;
         (lon, lat)
-    }
-
-    /// Get number of pixels
-    pub fn pixel_count(&self) -> usize {
-        self.pixels.len()
     }
 
     /// Update vertex buffer if dirty
@@ -275,11 +234,6 @@ impl PixelGrid {
             render_pass.set_vertex_buffer(0, buffer.slice(..));
             render_pass.draw(0..self.vertex_count, 0..1);
         }
-    }
-
-    /// Mark as dirty (forces rebuild on next update)
-    pub fn mark_dirty(&mut self) {
-        self.dirty = true;
     }
 }
 

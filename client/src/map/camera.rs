@@ -1,7 +1,7 @@
 //! Map camera for viewport management, panning, and zooming
 
 use super::tile::{
-    clamp_latitude, is_valid_tile_y, lon_lat_to_tile_f64, normalize_longitude, wrap_tile_x, TileId,
+    TileId, clamp_latitude, is_valid_tile_y, lon_lat_to_tile_f64, normalize_longitude, wrap_tile_x,
 };
 
 /// Tile size in pixels (standard OSM tile size)
@@ -96,11 +96,6 @@ impl MapCamera {
         self.center.1 = clamp_latitude(self.center.1 - lat_delta);
     }
 
-    /// Simple zoom (centered)
-    pub fn zoom_by(&mut self, delta: f64) {
-        self.zoom = (self.zoom + delta).clamp(0.0, 19.0);
-    }
-
     /// Get list of visible tiles with buffer for pre-loading
     pub fn visible_tiles(&self) -> Vec<TileId> {
         self.visible_tiles_with_buffer(1)
@@ -154,7 +149,7 @@ impl MapCamera {
 
         // Tile position relative to center
         let mut rel_x = tile.x as f64 - cx;
-        let mut rel_y = tile.y as f64 - cy;
+        let rel_y = tile.y as f64 - cy;
 
         // Handle world wrapping for X axis
         let max_tiles = (1_u64 << z) as f64;
@@ -175,23 +170,6 @@ impl MapCamera {
     pub fn tile_screen_size(&self) -> f32 {
         let scale = self.zoom_scale();
         (TILE_SIZE * scale) as f32
-    }
-
-    /// Convert screen coordinates to world coordinates (lon, lat)
-    pub fn screen_to_world(&self, screen_x: f32, screen_y: f32) -> (f64, f64) {
-        let meters_per_pixel = self.meters_per_pixel();
-        let cos_lat = self.center.1.to_radians().cos().max(0.01);
-
-        let offset_x = screen_x - (self.viewport_width as f32 / 2.0);
-        let offset_y = screen_y - (self.viewport_height as f32 / 2.0);
-
-        let lon_delta = (offset_x as f64) * meters_per_pixel / (111320.0 * cos_lat);
-        let lat_delta = (offset_y as f64) * meters_per_pixel / 111320.0;
-
-        let lon = normalize_longitude(self.center.0 + lon_delta);
-        let lat = clamp_latitude(self.center.1 - lat_delta);
-
-        (lon, lat)
     }
 }
 

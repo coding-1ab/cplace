@@ -11,7 +11,7 @@ use cache::TileCache;
 use camera::MapCamera;
 use grid::PixelGrid;
 use loader::{TileLoadResult, TileLoader};
-use renderer::{screen_to_ndc, size_to_ndc, TileRenderer};
+use renderer::{TileRenderer, screen_to_ndc, size_to_ndc};
 use tile::TileId;
 
 /// Integrated map system
@@ -97,15 +97,20 @@ impl MapSystem {
                 let (x, y) = self.camera.tile_to_screen(tile_id);
 
                 // Convert to NDC
-                let (ndc_x, ndc_y) =
-                    screen_to_ndc(x, y, self.camera.viewport_width, self.camera.viewport_height);
+                let (ndc_x, ndc_y) = screen_to_ndc(
+                    x,
+                    y,
+                    self.camera.viewport_width,
+                    self.camera.viewport_height,
+                );
                 let (ndc_w, ndc_h) = size_to_ndc(
                     tile_size,
                     self.camera.viewport_width,
                     self.camera.viewport_height,
                 );
 
-                self.render_tiles.push((*tile_id, (ndc_x, ndc_y), (ndc_w, ndc_h)));
+                self.render_tiles
+                    .push((*tile_id, (ndc_x, ndc_y), (ndc_w, ndc_h)));
             }
         }
 
@@ -114,11 +119,7 @@ impl MapSystem {
     }
 
     /// Render the map
-    pub fn render<'a>(
-        &'a self,
-        render_pass: &mut wgpu::RenderPass<'a>,
-        device: &wgpu::Device,
-    ) {
+    pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, device: &wgpu::Device) {
         // Render tiles
         self.tile_renderer
             .render(render_pass, device, &self.render_tiles, &self.tile_cache);
@@ -142,16 +143,6 @@ impl MapSystem {
         self.camera.zoom_at(delta, screen_x, screen_y);
     }
 
-    /// Zoom centered
-    pub fn zoom(&mut self, delta: f64) {
-        self.camera.zoom_by(delta);
-    }
-
-    /// Convert screen position to world coordinates
-    pub fn screen_to_world(&self, screen_x: f32, screen_y: f32) -> (f64, f64) {
-        self.camera.screen_to_world(screen_x, screen_y)
-    }
-
     /// Get cache statistics
     pub fn cache_stats(&self) -> cache::CacheStats {
         self.tile_cache.stats()
@@ -170,18 +161,5 @@ impl MapSystem {
     /// Get current center position
     pub fn center(&self) -> (f64, f64) {
         self.camera.center
-    }
-
-    /// Set center position
-    pub fn set_center(&mut self, lon: f64, lat: f64) {
-        self.camera.center = (
-            tile::normalize_longitude(lon),
-            tile::clamp_latitude(lat),
-        );
-    }
-
-    /// Set zoom level
-    pub fn set_zoom(&mut self, zoom: f64) {
-        self.camera.zoom = zoom.clamp(0.0, 19.0);
     }
 }
