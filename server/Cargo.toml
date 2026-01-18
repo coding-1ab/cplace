@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 image = "0.25.9"
-memmap = "0.7.0"
 rocket = { version = "0.5.1", features = ["json"]}
 serde = { version = "1.0", features = ["derive"] }
 mmap-sync = "2.0.1"
