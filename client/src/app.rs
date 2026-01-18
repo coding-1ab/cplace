@@ -1,5 +1,3 @@
-use winit::event::DeviceId;
-use winit::event::DeviceEvent;
 use crate::state::State;
 use log::{debug, error, info, warn};
 use std::num::NonZeroUsize;
