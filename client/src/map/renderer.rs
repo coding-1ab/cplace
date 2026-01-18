@@ -205,7 +205,6 @@ impl TileRenderer {
             texture,
             texture_view,
             bind_group,
-            memory_size,
         }
     }
 
