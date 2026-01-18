@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 rocket = { version = "0.5.1", features = ["json"]}
 serde = { version = "1.0", features = ["derive"] }
+mmap-sync = "2.0.1"
