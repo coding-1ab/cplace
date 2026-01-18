@@ -19,7 +19,7 @@ pub struct Pixel {
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
-pub struct Condinate {
+pub struct Coordinate {
     pub x: f32,
     pub y: f32,
 }
@@ -28,7 +28,7 @@ pub struct Condinate {
 #[serde(crate = "rocket::serde")]
 pub struct PixelData {
     pub pixel: Pixel,
-    pub condinate: Condinate,
+    pub coordinate: Coordinate,
 }
 
 #[post("/draw", format = "json", data = "<pixel_data>")]
@@ -48,7 +48,7 @@ pub fn get_drawing(chunkx: i32, chunky: i32, zoom_lv: u8) -> Result<Json<Vec<Pix
             b: 0,
             a: 0,
         },
-        condinate: Condinate { x: 0.0, y: 0.0 },
+        coordinate: Coordinate {x: 0.0, y: 0.0},
     }]))
 }
 
@@ -66,7 +66,7 @@ pub fn px_data_to_png_test() {
                 b: 0,
                 a: 255,
             },
-            condinate: Condinate { x: 10.0, y: 10.0 },
+            coordinate: Coordinate { x: 10.0, y: 10.0 },
         },
         PixelData {
             pixel: Pixel {
@@ -75,7 +75,7 @@ pub fn px_data_to_png_test() {
                 b: 0,
                 a: 255,
             },
-            condinate: Condinate { x: 20.0, y: 20.0 },
+            coordinate: Coordinate { x: 20.0, y: 20.0 },
         },
         PixelData {
             pixel: Pixel {
@@ -84,7 +84,7 @@ pub fn px_data_to_png_test() {
                 b: 255,
                 a: 255,
             },
-            condinate: Condinate { x: 30.0, y: 30.0 },
+            coordinate: Coordinate { x: 30.0, y: 30.0 },
         },
     ];
 
