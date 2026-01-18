@@ -1,14 +1,32 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+use rocket::{get, post};
+use rocket::serde::json::Json;
+
+#[derive(serde::Deserialize)]
+pub struct Pixel {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(serde::Deserialize)]
+pub struct Condinate {
+    pub x: f32,
+    pub y: f32,
+}
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+#[derive(serde::Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct PixelData {
+    pub pixel: Pixel,
+    pub condinate: Condinate,
+}
+
+#[post("/draw",format = "json", data = "<pixel_data>")]
+pub fn draw(pixel_data: Json<PixelData>) -> Result<(), ()> {
+    todo!();
+}
+
+#[get("/drawing/<chunkx>/<chunky>")]
+pub fn get_drawing(chunkx: i32, chunky: i32) -> Result<Json<Vec<PixelData>>, ()> {
+    todo!();
 }
