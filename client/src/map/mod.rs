@@ -7,6 +7,7 @@ pub mod loader;
 pub mod renderer;
 pub mod tile;
 
+use std::num::NonZeroUsize;
 use cache::TileCache;
 use camera::MapCamera;
 use grid::PixelGrid;
@@ -34,11 +35,12 @@ impl MapSystem {
         texture_format: wgpu::TextureFormat,
         viewport_width: u32,
         viewport_height: u32,
+        tiles: NonZeroUsize,
     ) -> Self {
         // Default camera: Seoul at zoom 12
         let camera = MapCamera::new(126.9780, 37.5665, 12.0, viewport_width, viewport_height);
 
-        let tile_cache = TileCache::default();
+        let tile_cache = TileCache::new(tiles);
         let tile_loader = TileLoader::default();
         let tile_renderer = TileRenderer::new(device, texture_format);
 
@@ -71,15 +73,9 @@ impl MapSystem {
         while let Some(result) = self.tile_loader.poll() {
             match result {
                 TileLoadResult::Success(id, data) => {
-                    match self.tile_renderer.create_cached_tile(device, queue, &data) {
-                        Ok(cached) => {
-                            log::debug!("Loaded tile {:?}", id);
-                            self.tile_cache.insert(id, cached);
-                        }
-                        Err(e) => {
-                            log::warn!("Failed to decode tile {:?}: {}", id, e);
-                        }
-                    }
+                    let cached = self.tile_renderer.create_cached_tile(device, queue, &data);
+                    log::debug!("Loaded tile {:?}", id);
+                    self.tile_cache.insert(id, cached);
                 }
                 TileLoadResult::Failed(id, err) => {
                     log::warn!("Failed to load tile {:?}: {}", id, err);

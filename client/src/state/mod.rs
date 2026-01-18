@@ -12,8 +12,8 @@ use winit::window::Window;
 use wasm_bindgen::prelude::*;
 
 use winit::dpi::PhysicalSize;
-use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
-
+use winit::event::{DeviceEvent, ElementState, MouseButton, MouseScrollDelta, WindowEvent};
+use crate::app::Configuration;
 use crate::map::MapSystem;
 
 // This will store the state of our game
@@ -42,7 +42,7 @@ pub struct State {
 impl State {
     // We don't need this to be async right now,
     // but we will in the next tutorial
-    pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
+    pub async fn new(window: Arc<Window>, configuration: Configuration) -> anyhow::Result<Self> {
         let instance = Instance::new(&InstanceDescriptor {
             backends: Backends::all(),
             ..Default::default()
@@ -122,6 +122,7 @@ impl State {
             texture_format,
             window.inner_size().width,
             window.inner_size().height,
+            configuration.tiles
         );
 
         Ok(Self {
@@ -161,7 +162,7 @@ impl State {
         self.map_system.resize(width, height);
     }
 
-    pub fn handle_input(&mut self, event: &WindowEvent) -> bool {
+    pub fn on_window_event(&mut self, event: &WindowEvent) -> bool {
         let response = self
             .egui_state
             .on_window_event(self.window.as_ref(), &event);
@@ -209,6 +210,19 @@ impl State {
         response.consumed
     }
 
+    pub fn on_device_event(&mut self, event: &DeviceEvent) {
+        match event {
+            DeviceEvent::MouseMotion { delta: (dx, dy) } => {
+                if self.mouse_pressed {
+                    let dx = *dx as f32;
+                    let dy = *dy as f32;
+                    self.map_system.pan(dx, dy);
+                }
+            }
+            _ => {},
+        }
+    }
+
     pub fn update(&mut self) {
         // Update map system
         self.map_system.update(&self.device, &self.queue);
@@ -241,7 +255,7 @@ impl State {
                     "Cache: {}/{} ({:.0}%)",
                     cache_stats.tile_count,
                     cache_stats.max_tiles,
-                    (cache_stats.tile_count as f32 / cache_stats.max_tiles as f32) * 100.0
+                    (cache_stats.tile_count as f32 / cache_stats.max_tiles.get() as f32) * 100.0
                 ));
                 if pending > 0 {
                     ui.separator();
