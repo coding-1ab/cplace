@@ -53,7 +53,8 @@ impl ApplicationHandler<State> for App {
         let configuration = configuration.clone();
 
         #[allow(unused_mut)]
-        let mut window_attributes = Window::default_attributes();
+        let mut window_attributes = Window::default_attributes()
+            .with_inner_size(PhysicalSize::new(800, 200));
 
         #[cfg(target_arch = "wasm32")]
         {

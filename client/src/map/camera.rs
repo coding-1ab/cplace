@@ -173,9 +173,20 @@ impl MapCamera {
     }
 }
 
-impl Default for MapCamera {
-    fn default() -> Self {
-        // Default to Seoul at zoom 10
-        Self::new(126.9780, 37.5665, 10.0, 800, 600)
+#[cfg(test)]
+mod test {
+    use crate::map::camera::MapCamera;
+    use crate::map::tile::TileId;
+
+    #[test]
+    fn test_visibility() {
+        let camera = MapCamera::new(126.9794, 37.5372, 14.0, 800, 200);
+        let visibles = camera.visible_tiles_with_buffer(1);
+        let test_data: Vec<_> = [
+            (13969, 6346, 14), (13970, 6346, 14), (13971, 6346, 14), (13972, 6346, 14),
+            (13969, 6347, 14), (13970, 6347, 14), (13971, 6347, 14), (13972, 6347, 14),
+            (13969, 6348, 14), (13970, 6348, 14), (13971, 6348, 14), (13972, 6348, 14)
+        ].into_iter().map(|(x, y, z)| TileId { x, y, z}).collect();
+        assert_eq!(visibles, test_data);
     }
 }

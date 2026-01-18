@@ -14,6 +14,7 @@ use grid::PixelGrid;
 use loader::{TileLoadResult, TileLoader};
 use renderer::{TileRenderer, screen_to_ndc, size_to_ndc};
 use tile::TileId;
+use crate::map::cache::TileType;
 
 /// Integrated map system
 pub struct MapSystem {
@@ -38,7 +39,7 @@ impl MapSystem {
         tiles: NonZeroUsize,
     ) -> Self {
         // Default camera: Seoul at zoom 12
-        let camera = MapCamera::new(126.9780, 37.5665, 12.0, viewport_width, viewport_height);
+        let camera = MapCamera::new(126.9794, 37.5372, 14.0, viewport_width, viewport_height);
 
         let tile_cache = TileCache::new(tiles);
         let tile_loader = TileLoader::default();
@@ -73,7 +74,7 @@ impl MapSystem {
         while let Some(result) = self.tile_loader.poll() {
             match result {
                 TileLoadResult::Success(id, data) => {
-                    let cached = self.tile_renderer.create_cached_tile(device, queue, &data);
+                    let cached = self.tile_renderer.create_cached_tile_with_type(device, queue, &data, TileType::MapTile);
                     log::debug!("Loaded tile {:?}", id);
                     self.tile_cache.insert(id, cached);
                 }
