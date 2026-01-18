@@ -199,15 +199,12 @@ impl TileRenderer {
             ],
         });
 
-        let memory_size = (decoded.width * decoded.height * 4) as usize;
-
         CachedTile {
             texture,
             texture_view,
             bind_group,
             width: decoded.width,
             height: decoded.height,
-            memory_size,
             tile_type: TileType::MapTile,
         }
     }
@@ -272,15 +269,12 @@ impl TileRenderer {
             ],
         });
 
-        let memory_size = (decoded.width * decoded.height * 4) as usize;
-
         CachedTile {
             texture,
             texture_view,
             bind_group,
             width: decoded.width,
             height: decoded.height,
-            memory_size,
             tile_type,
         }
     }

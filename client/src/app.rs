@@ -1,6 +1,7 @@
 use crate::state::State;
+use log::{debug, error, info, warn};
+use std::num::NonZeroUsize;
 use std::sync::Arc;
-use log::error;
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
 use winit::event::{DeviceEvent, DeviceId, ElementState, KeyEvent, WindowEvent};
@@ -15,23 +16,42 @@ use wasm_bindgen::prelude::*;
 pub struct App {
     #[cfg(target_arch = "wasm32")]
     proxy: Option<winit::event_loop::EventLoopProxy<State>>,
-    state: Option<State>,
+    state: InitializationState,
+}
+
+#[derive(Clone)]
+pub struct Configuration {
+    pub tiles: NonZeroUsize,
+}
+
+enum InitializationState {
+    Before(Configuration),
+    After(State),
 }
 
 impl App {
-    pub fn new(#[cfg(target_arch = "wasm32")] event_loop: &EventLoop<State>) -> Self {
+    pub fn new(
+        configuration: Configuration,
+        #[cfg(target_arch = "wasm32")] event_loop: &EventLoop<State>,
+    ) -> Self {
         #[cfg(target_arch = "wasm32")]
         let proxy = Some(event_loop.create_proxy());
         Self {
             #[cfg(target_arch = "wasm32")]
             proxy,
-            state: None,
+            state: InitializationState::Before(configuration),
         }
     }
 }
 
 impl ApplicationHandler<State> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        let InitializationState::Before(configuration) = &self.state else {
+            debug!("Preventing double initialization");
+            return;
+        };
+        let configuration = configuration.clone();
+
         #[allow(unused_mut)]
         let mut window_attributes = Window::default_attributes();
 
@@ -53,7 +73,9 @@ impl ApplicationHandler<State> for App {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            self.state = Some(pollster::block_on(State::new(window.clone())).unwrap());
+            self.state = InitializationState::After(
+                pollster::block_on(State::new(window.clone(), configuration)).unwrap(),
+            )
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -65,7 +87,7 @@ impl ApplicationHandler<State> for App {
                     assert!(
                         proxy
                             .send_event(
-                                State::new(window)
+                                State::new(window, configuration)
                                     .await
                                     .expect("Unable to create canvas!!!")
                             )
@@ -77,8 +99,8 @@ impl ApplicationHandler<State> for App {
     }
 
     #[allow(unused_mut)]
+    #[cfg(target_arch = "wasm32")]
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, mut state: State) {
-        #[cfg(target_arch = "wasm32")]
         {
             state.window.request_redraw();
             state.resize(
@@ -86,18 +108,13 @@ impl ApplicationHandler<State> for App {
                 state.window.inner_size().height,
             );
         }
-        self.state = Some(state);
+
+        self.state = InitializationState::After(state);
     }
 
-    fn window_event(
-        &mut self,
-        event_loop: &ActiveEventLoop,
-        _: WindowId,
-        event: WindowEvent,
-    ) {
-        let state = match &mut self.state {
-            Some(v) => v,
-            None => return,
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
+        let InitializationState::After(state) = &mut self.state else {
+            return;
         };
 
         if state.on_window_event(&event) {
@@ -119,7 +136,7 @@ impl ApplicationHandler<State> for App {
                         error!("render: {:?}", e);
                     }
                 }
-            },
+            }
             WindowEvent::KeyboardInput {
                 event:
                     KeyEvent {
@@ -137,8 +154,8 @@ impl ApplicationHandler<State> for App {
     }
 
     fn device_event(&mut self, _: &ActiveEventLoop, _: DeviceId, event: DeviceEvent) {
-        let Some(state) = self.state.as_mut() else {
-            return
+        let InitializationState::After(state) = &mut self.state else {
+            return;
         };
 
         state.on_device_event(&event);

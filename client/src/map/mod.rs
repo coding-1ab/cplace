@@ -7,6 +7,7 @@ pub mod loader;
 pub mod renderer;
 pub mod tile;
 
+use std::num::NonZeroUsize;
 use cache::TileCache;
 use camera::MapCamera;
 use grid::PixelGrid;
@@ -34,11 +35,12 @@ impl MapSystem {
         texture_format: wgpu::TextureFormat,
         viewport_width: u32,
         viewport_height: u32,
+        max_tiles: NonZeroUsize,
     ) -> Self {
         // Default camera: Seoul at zoom 12
         let camera = MapCamera::new(126.9780, 37.5665, 12.0, viewport_width, viewport_height);
 
-        let tile_cache = TileCache::default();
+        let tile_cache = TileCache::new(max_tiles);
         let tile_loader = TileLoader::default();
         let tile_renderer = TileRenderer::new(device, texture_format);
 

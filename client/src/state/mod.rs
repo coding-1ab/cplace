@@ -13,7 +13,7 @@ use wasm_bindgen::prelude::*;
 
 use winit::dpi::PhysicalSize;
 use winit::event::{DeviceEvent, ElementState, MouseButton, MouseScrollDelta, WindowEvent};
-
+use crate::app::Configuration;
 use crate::map::MapSystem;
 
 // This will store the state of our game
@@ -41,7 +41,7 @@ pub struct State {
 impl State {
     // We don't need this to be async right now,
     // but we will in the next tutorial
-    pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
+    pub async fn new(window: Arc<Window>, configuration: Configuration) -> anyhow::Result<Self> {
         let instance = Instance::new(&InstanceDescriptor {
             backends: Backends::all(),
             ..Default::default()
@@ -121,6 +121,7 @@ impl State {
             texture_format,
             window.inner_size().width,
             window.inner_size().height,
+            configuration.tiles
         );
 
         Ok(Self {
@@ -240,7 +241,7 @@ impl State {
                     "Cache: {}/{} ({:.0}%)",
                     cache_stats.tile_count,
                     cache_stats.max_tiles,
-                    (cache_stats.tile_count as f32 / cache_stats.max_tiles as f32) * 100.0
+                    (cache_stats.tile_count as f32 / cache_stats.max_tiles.get() as f32) * 100.0
                 ));
                 if pending > 0 {
                     ui.separator();
