@@ -172,10 +172,3 @@ impl MapCamera {
         (TILE_SIZE * scale) as f32
     }
 }
-
-impl Default for MapCamera {
-    fn default() -> Self {
-        // Default to Seoul at zoom 10
-        Self::new(126.9780, 37.5665, 10.0, 800, 600)
-    }
-}

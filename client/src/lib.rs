@@ -15,7 +15,8 @@ pub fn run() -> anyhow::Result<()> {
     #[cfg(target_arch = "wasm32")]
     {
         console_log::init_with_level(log::Level::Info).unwrap_throw();
-        // info!("Starting...");
+        use log::info;
+        info!("Starting...");
     }
 
     let event_loop = EventLoop::with_user_event().build()?;

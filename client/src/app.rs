@@ -3,7 +3,7 @@ use std::sync::Arc;
 use log::error;
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
-use winit::event::{ElementState, KeyEvent, WindowEvent};
+use winit::event::{DeviceEvent, DeviceId, ElementState, KeyEvent, WindowEvent};
 #[allow(unused_imports)]
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
@@ -100,7 +100,7 @@ impl ApplicationHandler<State> for App {
             None => return,
         };
 
-        if state.handle_input(&event) {
+        if state.on_window_event(&event) {
             return;
         }
         match event {
@@ -134,5 +134,13 @@ impl ApplicationHandler<State> for App {
             },
             _ => {}
         }
+    }
+
+    fn device_event(&mut self, _: &ActiveEventLoop, _: DeviceId, event: DeviceEvent) {
+        let Some(state) = self.state.as_mut() else {
+            return
+        };
+
+        state.on_device_event(&event);
     }
 }

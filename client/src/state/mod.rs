@@ -12,7 +12,7 @@ use winit::window::Window;
 use wasm_bindgen::prelude::*;
 
 use winit::dpi::PhysicalSize;
-use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
+use winit::event::{DeviceEvent, ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 
 use crate::map::MapSystem;
 
@@ -35,7 +35,6 @@ pub struct State {
 
     // Mouse state for panning
     mouse_pressed: bool,
-    last_mouse_pos: Option<(f32, f32)>,
     current_mouse_pos: (f32, f32),
 }
 
@@ -138,7 +137,6 @@ impl State {
             draw_egui: true,
             map_system,
             mouse_pressed: false,
-            last_mouse_pos: None,
             current_mouse_pos: (0.0, 0.0),
         })
     }
@@ -161,7 +159,7 @@ impl State {
         self.map_system.resize(width, height);
     }
 
-    pub fn handle_input(&mut self, event: &WindowEvent) -> bool {
+    pub fn on_window_event(&mut self, event: &WindowEvent) -> bool {
         let response = self
             .egui_state
             .on_window_event(self.window.as_ref(), &event);
@@ -177,23 +175,11 @@ impl State {
             WindowEvent::MouseInput { state, button, .. } => {
                 if *button == MouseButton::Left {
                     self.mouse_pressed = *state == ElementState::Pressed;
-                    if !self.mouse_pressed {
-                        self.last_mouse_pos = None;
-                    }
                 }
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let (x, y) = (position.x as f32, position.y as f32);
                 self.current_mouse_pos = (x, y);
-
-                if self.mouse_pressed {
-                    if let Some((last_x, last_y)) = self.last_mouse_pos {
-                        let dx = x - last_x;
-                        let dy = y - last_y;
-                        self.map_system.pan(dx, dy);
-                    }
-                    self.last_mouse_pos = Some((x, y));
-                }
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 let zoom_delta = match delta {
@@ -207,6 +193,19 @@ impl State {
         }
 
         response.consumed
+    }
+    
+    pub fn on_device_event(&mut self, event: &DeviceEvent) {
+        match event {
+            DeviceEvent::MouseMotion { delta: (dx, dy) } => {
+                if self.mouse_pressed {
+                    let dx = *dx as f32;
+                    let dy = *dy as f32;
+                    self.map_system.pan(dx, dy);
+                }
+            }
+            _ => {}
+        }
     }
 
     pub fn update(&mut self) {

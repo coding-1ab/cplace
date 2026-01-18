@@ -9,7 +9,7 @@ use super::loader::DecodedTileData;
 use super::tile::TileId;
 
 /// Vertex for tile rendering
-#[repr(C)]
+#[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct TileVertex {
     pub position: [f32; 3],
@@ -24,7 +24,7 @@ impl TileVertex {
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<TileVertex>() as wgpu::BufferAddress,
+            array_stride: size_of::<TileVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &Self::ATTRIBS,
         }
