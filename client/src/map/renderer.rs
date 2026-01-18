@@ -4,11 +4,12 @@ use bytemuck::{Pod, Zeroable};
 use wgpu::include_wgsl;
 use wgpu::util::DeviceExt;
 
-use super::cache::{CachedTile, TileCache};
+use super::cache::{CachedTile, TileCache, TileType};
+use super::loader::DecodedTileData;
 use super::tile::TileId;
 
 /// Vertex for tile rendering
-#[repr(C)]
+#[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct TileVertex {
     pub position: [f32; 3],
@@ -23,7 +24,7 @@ impl TileVertex {
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<TileVertex>() as wgpu::BufferAddress,
+            array_stride: size_of::<TileVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &Self::ATTRIBS,
         }
@@ -139,22 +140,18 @@ impl TileRenderer {
         }
     }
 
-    /// Create a cached tile from image data
+    /// Create a cached tile from pre-decoded image data (GPU upload only)
     pub fn create_cached_tile(
         &self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        image_data: &[u8],
-    ) -> Result<CachedTile, image::ImageError> {
-        let img = image::load_from_memory(image_data)?;
-        let rgba = img.to_rgba8();
-        let (width, height) = rgba.dimensions();
-
+        decoded: &DecodedTileData,
+    ) -> CachedTile {
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Map Tile Texture"),
             size: wgpu::Extent3d {
-                width,
-                height,
+                width: decoded.width,
+                height: decoded.width,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -172,15 +169,15 @@ impl TileRenderer {
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            &rgba,
+            &decoded.rgba,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(4 * width),
-                rows_per_image: Some(height),
+                bytes_per_row: Some(4 * decoded.width),
+                rows_per_image: Some(decoded.width),
             },
             wgpu::Extent3d {
-                width,
-                height,
+                width: decoded.width,
+                height: decoded.width,
                 depth_or_array_layers: 1,
             },
         );
@@ -202,14 +199,82 @@ impl TileRenderer {
             ],
         });
 
-        let memory_size = (width * height * 4) as usize;
-
-        Ok(CachedTile {
+        CachedTile {
             texture,
             texture_view,
             bind_group,
-            memory_size,
-        })
+            width: decoded.width,
+            tile_type: TileType::MapTile,
+        }
+    }
+
+    /// Create a cached tile with custom tile type
+    pub fn create_cached_tile_with_type(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        decoded: &DecodedTileData,
+        tile_type: TileType,
+    ) -> CachedTile {
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Tile Texture"),
+            size: wgpu::Extent3d {
+                width: decoded.width,
+                height: decoded.width,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+
+        queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &decoded.rgba,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * decoded.width),
+                rows_per_image: Some(decoded.width),
+            },
+            wgpu::Extent3d {
+                width: decoded.width,
+                height: decoded.width,
+                depth_or_array_layers: 1,
+            },
+        );
+
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Tile Bind Group"),
+            layout: &self.bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
+            ],
+        });
+
+        CachedTile {
+            texture,
+            texture_view,
+            bind_group,
+            width: decoded.width,
+            tile_type,
+        }
     }
 
     /// Render visible tiles
