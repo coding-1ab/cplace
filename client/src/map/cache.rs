@@ -38,12 +38,6 @@ pub struct CachedTile {
 /// LRU cache for a single zoom level
 #[derive(Clone, Debug)]
 struct ZoomLevelCache(LruCache<TileId, Arc<CachedTile>>);
-/*struct ZoomLevelCache {
-    tiles: HashMap<(u32, u32), Arc<CachedTile>>,
-    access_order: Vec<(u32, u32)>,
-    max_tiles: usize,
-    priority: u8,
-}*/
 
 // TODO Share this with server
 /// Maximum supported zoom level

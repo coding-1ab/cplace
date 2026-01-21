@@ -96,16 +96,6 @@ impl MapCamera {
         self.center.1 = clamp_latitude(self.center.1 - lat_delta);
     }
 
-    /// Get list of visible tiles with buffer for pre-loading
-    pub fn visible_tiles(&self) -> Vec<TileId> {
-        let z = self.tile_zoom();
-        let (cx, cy) = lon_lat_to_tile_f64(self.center.0, self.center.1, z);
-        let x = cx.floor() as u32;
-        let y = cy.floor() as u32;
-        vec![TileId { x, y, z }]
-        // self.visible_tiles_with_buffer(1)
-    }
-
     /// Get visible tiles with specified buffer tiles around viewport
     pub fn visible_tiles_with_buffer(&self, buffer: i32) -> Vec<TileId> {
         let z = self.tile_zoom();
@@ -116,17 +106,17 @@ impl MapCamera {
         let (cx, cy) = lon_lat_to_tile_f64(self.center.0, self.center.1, z);
 
         // How many tiles fit in the viewport
-        let tiles_x = (self.viewport_width as f64 / scaled_tile_size).ceil();
-        let tiles_y = (self.viewport_height as f64 / scaled_tile_size).ceil();
+        let tiles_x = self.viewport_width as f64 / scaled_tile_size;
+        let tiles_y = self.viewport_height as f64 / scaled_tile_size;
 
         // Calculate tile range
         let half_tiles_x = tiles_x / 2.0 + buffer as f64;
         let half_tiles_y = tiles_y / 2.0 + buffer as f64;
 
-        let min_x = (cx - half_tiles_x).round() as i32;
-        let max_x = (cx + half_tiles_x) as i32;
-        let min_y = (cy - half_tiles_y).round() as i32;
-        let max_y = (cy + half_tiles_y) as i32;
+        let min_x = (cx - half_tiles_x).floor() as i32;
+        let max_x = (cx + half_tiles_x).floor() as i32;
+        let min_y = (cy - half_tiles_y).floor() as i32;
+        let max_y = (cy + half_tiles_y).floor() as i32;
 
         // Collect tiles with X-axis wrapping
         let mut tiles = Vec::new();

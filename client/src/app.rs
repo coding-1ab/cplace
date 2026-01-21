@@ -54,7 +54,7 @@ impl ApplicationHandler<State> for App {
 
         #[allow(unused_mut)]
         let mut window_attributes = Window::default_attributes()
-            .with_inner_size(PhysicalSize::new(800, 200));
+            .with_inner_size(PhysicalSize::new(800, 300));
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -166,7 +166,7 @@ impl ApplicationHandler<State> for App {
 impl Default for Configuration {
     fn default() -> Self {
         Configuration {
-            tiles: NonZeroUsize::new(16).unwrap(),
+            tiles: NonZeroUsize::new(128).unwrap(),
         }
     }
 }

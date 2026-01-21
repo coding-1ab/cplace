@@ -61,7 +61,7 @@ impl MapSystem {
     /// Update the map system (call each frame)
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         // 1. Get visible tiles
-        let visible = self.camera.visible_tiles();
+        let visible = self.camera.visible_tiles_with_buffer(1);
 
         // 2. Request loading for tiles not in cache
         for tile_id in &visible {
