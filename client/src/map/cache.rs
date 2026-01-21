@@ -1,11 +1,12 @@
 //! LRU tile cache for GPU textures with zoom-level separation
 
 use super::tile::TileId;
-use lru::LruCache;
-use std::num::NonZeroUsize;
-use std::sync::Arc;
 use arrayvec::ArrayVec;
 use log::warn;
+use lru::LruCache;
+use std::num::NonZeroUsize;
+use std::ops::Index;
+use std::sync::Arc;
 
 /// Tile type for different use cases
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -53,23 +54,25 @@ pub struct TileCache {
 impl TileCache {
     /// Create a new tile cache with default configuration
     pub fn new(tiles_per_level: NonZeroUsize) -> Self {
-        let levels: ArrayVec<_, { MAX_ZOOM + 1 }> = (0..=MAX_ZOOM).map(|_| ZoomLevelCache(LruCache::new(tiles_per_level))).collect();
+        let levels: ArrayVec<_, { MAX_ZOOM + 1 }> = (0..=MAX_ZOOM)
+            .map(|_| ZoomLevelCache(LruCache::new(tiles_per_level)))
+            .collect();
         let levels = levels.into_inner().unwrap();
-        Self {
-            levels,
-        }
+        Self { levels }
     }
 
     /// Check if tile exists in cache
     pub fn contains(&self, tile_id: &TileId) -> bool {
-        self.levels.get(tile_id.z as usize)
+        self.levels
+            .get(tile_id.z as usize)
             .map(|cache| cache.0.contains(tile_id))
             .unwrap_or(false)
     }
 
     /// Get a tile without updating access order (for read-only checks)
     pub fn peek(&self, tile_id: &TileId) -> Option<Arc<CachedTile>> {
-        self.levels.get(tile_id.z as usize)
+        self.levels
+            .get(tile_id.z as usize)
             .and_then(|cache| cache.0.peek(tile_id).cloned())
     }
 
@@ -84,11 +87,11 @@ impl TileCache {
     }
 
     /// Get cache statistics
-    pub fn stats(&self) -> CacheStats {
+    pub fn stats(&self, zoom_level: usize) -> CacheStats {
         let mut tile_count = 0;
         let mut max_tiles = 0;
 
-        for level in self.levels.iter().map(|v| &v.0) {
+        for level in self.levels.get(zoom_level).map(|v| &v.0) {
             tile_count += level.len();
             max_tiles += level.cap().get();
         }

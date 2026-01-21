@@ -7,14 +7,15 @@ pub mod loader;
 pub mod renderer;
 pub mod tile;
 
-use std::num::NonZeroUsize;
+use crate::map::cache::TileType;
 use cache::TileCache;
 use camera::MapCamera;
+use egui::gui_zoom::kb_shortcuts::ZOOM_IN;
 use grid::PixelGrid;
 use loader::{TileLoadResult, TileLoader};
 use renderer::{TileRenderer, screen_to_ndc, size_to_ndc};
+use std::num::NonZeroUsize;
 use tile::TileId;
-use crate::map::cache::TileType;
 
 /// Integrated map system
 pub struct MapSystem {
@@ -74,7 +75,12 @@ impl MapSystem {
         while let Some(result) = self.tile_loader.poll() {
             match result {
                 TileLoadResult::Success(id, data) => {
-                    let cached = self.tile_renderer.create_cached_tile_with_type(device, queue, &data, TileType::MapTile);
+                    let cached = self.tile_renderer.create_cached_tile_with_type(
+                        device,
+                        queue,
+                        &data,
+                        TileType::MapTile,
+                    );
                     log::debug!("Loaded tile {:?}", id);
                     self.tile_cache.insert(id, cached);
                 }
@@ -141,8 +147,8 @@ impl MapSystem {
     }
 
     /// Get cache statistics
-    pub fn cache_stats(&self) -> cache::CacheStats {
-        self.tile_cache.stats()
+    pub fn cache_stats(&self, zoom_label: usize) -> cache::CacheStats {
+        self.tile_cache.stats(zoom_label)
     }
 
     /// Get pending tile count
