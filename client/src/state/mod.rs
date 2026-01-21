@@ -12,7 +12,7 @@ use winit::window::Window;
 use wasm_bindgen::prelude::*;
 
 use crate::app::Configuration;
-use crate::map::{self, MapSystem};
+use crate::map::MapSystem;
 use winit::dpi::PhysicalSize;
 use winit::event::{DeviceEvent, ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 

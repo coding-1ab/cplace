@@ -1,5 +1,6 @@
 //! Map camera for viewport management, panning, and zooming
 
+use crate::map::cache::MAX_ZOOM;
 use super::tile::{
     TileId, clamp_latitude, is_valid_tile_y, lon_lat_to_tile_f64, normalize_longitude, wrap_tile_x,
 };
@@ -24,7 +25,7 @@ impl MapCamera {
     pub fn new(lon: f64, lat: f64, zoom: f64, width: u32, height: u32) -> Self {
         Self {
             center: (normalize_longitude(lon), clamp_latitude(lat)),
-            zoom: zoom.clamp(0.0, 19.0),
+            zoom: zoom.clamp(0.0, MAX_ZOOM as f64),
             viewport_width: width,
             viewport_height: height,
         }

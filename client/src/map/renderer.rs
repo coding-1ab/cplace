@@ -215,13 +215,13 @@ impl TileRenderer {
         render_pass: &mut wgpu::RenderPass<'a>,
         device: &wgpu::Device,
         tiles: &[(TileId, (f32, f32), (f32, f32))], // (tile_id, screen_pos, (width, height))
-        cache: &'a TileCache,
+        cache: &'a mut TileCache,
     ) {
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
         for (tile_id, (x, y), (width, height)) in tiles {
-            if let Some(cached) = cache.peek(tile_id) {
+            if let Some(cached) = cache.get(tile_id) {
                 // Create vertex buffer for this tile
                 let vertices = create_tile_quad(*x, *y, *width, *height);
                 // debug!("size is:{}, {}",*width, *height);

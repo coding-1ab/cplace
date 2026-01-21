@@ -5,7 +5,6 @@ use arrayvec::ArrayVec;
 use log::warn;
 use lru::LruCache;
 use std::num::NonZeroUsize;
-use std::ops::Index;
 use std::sync::Arc;
 
 /// Tile type for different use cases
@@ -16,10 +15,6 @@ pub enum TileType {
     MapTile,
     /// Pixel art overlay (variable size)
     PixelArt,
-    /// High resolution tile (512x512)
-    HighRes,
-    /// Custom user-defined tile
-    Custom,
 }
 
 /// Cached tile with GPU resources and metadata
@@ -69,11 +64,9 @@ impl TileCache {
             .unwrap_or(false)
     }
 
-    /// Get a tile without updating access order (for read-only checks)
-    pub fn peek(&self, tile_id: &TileId) -> Option<Arc<CachedTile>> {
-        self.levels
-            .get(tile_id.z as usize)
-            .and_then(|cache| cache.0.peek(tile_id).cloned())
+    pub fn get(&mut self, tile_id: &TileId) -> Option<Arc<CachedTile>> {
+        self.levels.get_mut(tile_id.z as usize)
+            .and_then(|cache| cache.0.get(tile_id).cloned())
     }
 
     /// Insert a new tile into cache, evicting old tiles if necessary
@@ -91,47 +84,20 @@ impl TileCache {
         let mut tile_count = 0;
         let mut max_tiles = 0;
 
-        for level in self.levels.get(zoom_level).map(|v| &v.0) {
-            tile_count += level.len();
-            max_tiles += level.cap().get();
-        }
+        let level = &self.levels[zoom_level].0;
+        tile_count += level.len();
+        max_tiles += level.cap().get();
 
         CacheStats {
             tile_count,
             max_tiles: NonZeroUsize::new(max_tiles).unwrap(),
         }
     }
-
-    /// Get statistics for a specific zoom level
-    pub fn level_stats(&self, z: u8) -> Option<ZoomLevelStats> {
-        self.levels.get(z as usize).map(|cache| ZoomLevelStats {
-            zoom: z,
-            tile_count: cache.0.len(),
-            max_tiles: cache.0.cap(),
-        })
-    }
-
-    pub fn tile_counts(&self) -> [usize; MAX_ZOOM + 1] {
-        self.levels
-            .iter()
-            .map(|cache| cache.0.len())
-            .collect::<ArrayVec<_, _>>()
-            .into_inner()
-            .unwrap()
-    }
 }
 
 /// Cache statistics for debugging/UI
 #[derive(Debug, Clone, Copy)]
 pub struct CacheStats {
-    pub tile_count: usize,
-    pub max_tiles: NonZeroUsize,
-}
-
-/// Statistics for a single zoom level
-#[derive(Debug, Clone, Copy)]
-pub struct ZoomLevelStats {
-    pub zoom: u8,
     pub tile_count: usize,
     pub max_tiles: NonZeroUsize,
 }

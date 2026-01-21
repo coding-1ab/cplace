@@ -10,7 +10,6 @@ pub mod tile;
 use crate::map::cache::TileType;
 use cache::TileCache;
 use camera::MapCamera;
-use egui::gui_zoom::kb_shortcuts::ZOOM_IN;
 use grid::PixelGrid;
 use loader::{TileLoadResult, TileLoader};
 use renderer::{TileRenderer, screen_to_ndc, size_to_ndc};
@@ -122,10 +121,10 @@ impl MapSystem {
     }
 
     /// Render the map
-    pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, device: &wgpu::Device) {
+    pub fn render<'a>(&'a mut self, render_pass: &mut wgpu::RenderPass<'a>, device: &wgpu::Device) {
         // Render tiles
         self.tile_renderer
-            .render(render_pass, device, &self.render_tiles, &self.tile_cache);
+            .render(render_pass, device, &self.render_tiles, &mut self.tile_cache);
 
         // Render pixel grid overlay
         self.pixel_grid.render(render_pass);
