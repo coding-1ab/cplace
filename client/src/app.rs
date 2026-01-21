@@ -1,5 +1,5 @@
 use crate::state::State;
-use log::{debug, error, info, warn};
+use log::{debug, error};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
@@ -53,7 +53,8 @@ impl ApplicationHandler<State> for App {
         let configuration = configuration.clone();
 
         #[allow(unused_mut)]
-        let mut window_attributes = Window::default_attributes();
+        let mut window_attributes = Window::default_attributes()
+            .with_inner_size(PhysicalSize::new(800, 300));
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -165,7 +166,7 @@ impl ApplicationHandler<State> for App {
 impl Default for Configuration {
     fn default() -> Self {
         Configuration {
-            tiles: NonZeroUsize::new(16).unwrap(),
+            tiles: NonZeroUsize::new(128).unwrap(),
         }
     }
 }

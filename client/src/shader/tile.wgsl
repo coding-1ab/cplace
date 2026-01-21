@@ -14,8 +14,8 @@ struct VertexOutput {
 fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
     out.clip_position = vec4<f32>(in.position, 1.0);
+    out.clip_position.y = -out.clip_position.y;
     out.tex_coords = in.tex_coords;
-    out.tex_coords.y = 1.0 - out.tex_coords.y;
     return out;
 }
 

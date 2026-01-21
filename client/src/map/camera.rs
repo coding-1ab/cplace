@@ -1,5 +1,6 @@
 //! Map camera for viewport management, panning, and zooming
 
+use crate::map::cache::MAX_ZOOM;
 use super::tile::{
     TileId, clamp_latitude, is_valid_tile_y, lon_lat_to_tile_f64, normalize_longitude, wrap_tile_x,
 };
@@ -24,7 +25,7 @@ impl MapCamera {
     pub fn new(lon: f64, lat: f64, zoom: f64, width: u32, height: u32) -> Self {
         Self {
             center: (normalize_longitude(lon), clamp_latitude(lat)),
-            zoom: zoom.clamp(0.0, 19.0),
+            zoom: zoom.clamp(0.0, MAX_ZOOM as f64),
             viewport_width: width,
             viewport_height: height,
         }
@@ -96,11 +97,6 @@ impl MapCamera {
         self.center.1 = clamp_latitude(self.center.1 - lat_delta);
     }
 
-    /// Get list of visible tiles with buffer for pre-loading
-    pub fn visible_tiles(&self) -> Vec<TileId> {
-        self.visible_tiles_with_buffer(1)
-    }
-
     /// Get visible tiles with specified buffer tiles around viewport
     pub fn visible_tiles_with_buffer(&self, buffer: i32) -> Vec<TileId> {
         let z = self.tile_zoom();
@@ -111,17 +107,17 @@ impl MapCamera {
         let (cx, cy) = lon_lat_to_tile_f64(self.center.0, self.center.1, z);
 
         // How many tiles fit in the viewport
-        let tiles_x = (self.viewport_width as f64 / scaled_tile_size).ceil() as i32 + 1;
-        let tiles_y = (self.viewport_height as f64 / scaled_tile_size).ceil() as i32 + 1;
+        let tiles_x = self.viewport_width as f64 / scaled_tile_size;
+        let tiles_y = self.viewport_height as f64 / scaled_tile_size;
 
         // Calculate tile range
-        let half_tiles_x = tiles_x / 2 + buffer;
-        let half_tiles_y = tiles_y / 2 + buffer;
+        let half_tiles_x = tiles_x / 2.0 + buffer as f64;
+        let half_tiles_y = tiles_y / 2.0 + buffer as f64;
 
-        let min_x = cx.floor() as i32 - half_tiles_x;
-        let max_x = cx.ceil() as i32 + half_tiles_x;
-        let min_y = cy.floor() as i32 - half_tiles_y;
-        let max_y = cy.ceil() as i32 + half_tiles_y;
+        let min_x = (cx - half_tiles_x).floor() as i32;
+        let max_x = (cx + half_tiles_x).floor() as i32;
+        let min_y = (cy - half_tiles_y).floor() as i32;
+        let max_y = (cy + half_tiles_y).floor() as i32;
 
         // Collect tiles with X-axis wrapping
         let mut tiles = Vec::new();
@@ -173,9 +169,24 @@ impl MapCamera {
     }
 }
 
-impl Default for MapCamera {
-    fn default() -> Self {
-        // Default to Seoul at zoom 10
-        Self::new(126.9780, 37.5665, 10.0, 800, 600)
+#[cfg(test)]
+mod test {
+    use crate::map::camera::MapCamera;
+    use crate::map::tile::TileId;
+
+    #[test]
+    fn test_visibility() {
+        let camera = MapCamera::new(126.9794, 37.5372, 14.0, 800, 200);
+        let visibles = camera.visible_tiles_with_buffer(0);
+        let test_data: Vec<_> = [
+            (13969, 6346, 14),
+            (13970, 6346, 14),
+            (13971, 6346, 14),
+            (13972, 6346, 14),
+        ]
+        .into_iter()
+        .map(|(x, y, z)| TileId { x, y, z })
+        .collect();
+        assert_eq!(visibles, test_data);
     }
 }

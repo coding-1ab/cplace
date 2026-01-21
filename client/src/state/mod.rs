@@ -11,10 +11,10 @@ use winit::window::Window;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-use winit::dpi::PhysicalSize;
-use winit::event::{DeviceEvent, ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use crate::app::Configuration;
 use crate::map::MapSystem;
+use winit::dpi::PhysicalSize;
+use winit::event::{DeviceEvent, ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 
 // This will store the state of our game
 pub struct State {
@@ -122,7 +122,7 @@ impl State {
             texture_format,
             window.inner_size().width,
             window.inner_size().height,
-            configuration.tiles
+            configuration.tiles,
         );
 
         Ok(Self {
@@ -219,7 +219,7 @@ impl State {
                     self.map_system.pan(dx, dy);
                 }
             }
-            _ => {},
+            _ => {}
         }
     }
 
@@ -241,7 +241,7 @@ impl State {
         // Update egui
         let map_center = self.map_system.center();
         let map_zoom = self.map_system.zoom_level();
-        let cache_stats = self.map_system.cache_stats();
+        let cache_stats = self.map_system.cache_stats(map_zoom.floor() as usize);
         let pending = self.map_system.pending_tiles();
 
         TopBottomPanel::top("menu").show(ctx, |ui| {

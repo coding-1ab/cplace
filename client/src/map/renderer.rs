@@ -140,74 +140,6 @@ impl TileRenderer {
         }
     }
 
-    /// Create a cached tile from pre-decoded image data (GPU upload only)
-    pub fn create_cached_tile(
-        &self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        decoded: &DecodedTileData,
-    ) -> CachedTile {
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Map Tile Texture"),
-            size: wgpu::Extent3d {
-                width: decoded.width,
-                height: decoded.width,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-
-        queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &decoded.rgba,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(4 * decoded.width),
-                rows_per_image: Some(decoded.width),
-            },
-            wgpu::Extent3d {
-                width: decoded.width,
-                height: decoded.width,
-                depth_or_array_layers: 1,
-            },
-        );
-
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Tile Bind Group"),
-            layout: &self.bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&self.sampler),
-                },
-            ],
-        });
-
-        CachedTile {
-            texture,
-            texture_view,
-            bind_group,
-            width: decoded.width,
-            tile_type: TileType::MapTile,
-        }
-    }
-
     /// Create a cached tile with custom tile type
     pub fn create_cached_tile_with_type(
         &self,
@@ -283,13 +215,13 @@ impl TileRenderer {
         render_pass: &mut wgpu::RenderPass<'a>,
         device: &wgpu::Device,
         tiles: &[(TileId, (f32, f32), (f32, f32))], // (tile_id, screen_pos, (width, height))
-        cache: &'a TileCache,
+        cache: &'a mut TileCache,
     ) {
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
         for (tile_id, (x, y), (width, height)) in tiles {
-            if let Some(cached) = cache.peek(tile_id) {
+            if let Some(cached) = cache.get(tile_id) {
                 // Create vertex buffer for this tile
                 let vertices = create_tile_quad(*x, *y, *width, *height);
                 // debug!("size is:{}, {}",*width, *height);
@@ -332,7 +264,7 @@ fn create_tile_quad(x: f32, y: f32, width: f32, height: f32) -> [TileVertex; 4] 
 /// Convert screen coordinates to NDC
 pub fn screen_to_ndc(x: f32, y: f32, viewport_width: u32, viewport_height: u32) -> (f32, f32) {
     let ndc_x = (x / viewport_width as f32) * 2.0 - 1.0;
-    let ndc_y = 1.0 - (y / viewport_height as f32) * 2.0;
+    let ndc_y = (y / viewport_height as f32) * 2.0 - 1.0;
     (ndc_x, ndc_y)
 }
 

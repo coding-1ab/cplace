@@ -7,12 +7,13 @@ pub mod loader;
 pub mod renderer;
 pub mod tile;
 
-use std::num::NonZeroUsize;
+use crate::map::cache::TileType;
 use cache::TileCache;
 use camera::MapCamera;
 use grid::PixelGrid;
 use loader::{TileLoadResult, TileLoader};
 use renderer::{TileRenderer, screen_to_ndc, size_to_ndc};
+use std::num::NonZeroUsize;
 use tile::TileId;
 
 /// Integrated map system
@@ -38,7 +39,7 @@ impl MapSystem {
         tiles: NonZeroUsize,
     ) -> Self {
         // Default camera: Seoul at zoom 12
-        let camera = MapCamera::new(126.9780, 37.5665, 12.0, viewport_width, viewport_height);
+        let camera = MapCamera::new(126.9794, 37.5372, 14.0, viewport_width, viewport_height);
 
         let tile_cache = TileCache::new(tiles);
         let tile_loader = TileLoader::default();
@@ -60,7 +61,7 @@ impl MapSystem {
     /// Update the map system (call each frame)
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         // 1. Get visible tiles
-        let visible = self.camera.visible_tiles();
+        let visible = self.camera.visible_tiles_with_buffer(1);
 
         // 2. Request loading for tiles not in cache
         for tile_id in &visible {
@@ -73,7 +74,12 @@ impl MapSystem {
         while let Some(result) = self.tile_loader.poll() {
             match result {
                 TileLoadResult::Success(id, data) => {
-                    let cached = self.tile_renderer.create_cached_tile(device, queue, &data);
+                    let cached = self.tile_renderer.create_cached_tile_with_type(
+                        device,
+                        queue,
+                        &data,
+                        TileType::MapTile,
+                    );
                     log::debug!("Loaded tile {:?}", id);
                     self.tile_cache.insert(id, cached);
                 }
@@ -115,10 +121,10 @@ impl MapSystem {
     }
 
     /// Render the map
-    pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, device: &wgpu::Device) {
+    pub fn render<'a>(&'a mut self, render_pass: &mut wgpu::RenderPass<'a>, device: &wgpu::Device) {
         // Render tiles
         self.tile_renderer
-            .render(render_pass, device, &self.render_tiles, &self.tile_cache);
+            .render(render_pass, device, &self.render_tiles, &mut self.tile_cache);
 
         // Render pixel grid overlay
         self.pixel_grid.render(render_pass);
@@ -140,8 +146,8 @@ impl MapSystem {
     }
 
     /// Get cache statistics
-    pub fn cache_stats(&self) -> cache::CacheStats {
-        self.tile_cache.stats()
+    pub fn cache_stats(&self, zoom_label: usize) -> cache::CacheStats {
+        self.tile_cache.stats(zoom_label)
     }
 
     /// Get pending tile count
