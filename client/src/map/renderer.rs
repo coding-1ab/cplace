@@ -264,7 +264,7 @@ fn create_tile_quad(x: f32, y: f32, width: f32, height: f32) -> [TileVertex; 4] 
 /// Convert screen coordinates to NDC
 pub fn screen_to_ndc(x: f32, y: f32, viewport_width: u32, viewport_height: u32) -> (f32, f32) {
     let ndc_x = (x / viewport_width as f32) * 2.0 - 1.0;
-    let ndc_y = 1.0 - (y / viewport_height as f32) * 2.0;
+    let ndc_y = (y / viewport_height as f32) * 2.0 - 1.0;
     (ndc_x, ndc_y)
 }
 
