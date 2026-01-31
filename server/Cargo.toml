@@ -8,4 +8,5 @@ image = "0.25.9"
 rocket = { version = "0.5.1", features = ["json"]}
 serde = { version = "1.0", features = ["derive"] }
 mmap-sync = "2.0.1"
-rkyv = "0.7.46"
+rkyv = { version = "0.7.46", features = ["validation"] }
+bytecheck = "0.6"
