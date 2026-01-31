@@ -10,7 +10,7 @@ pub mod tile;
 use crate::map::cache::TileType;
 use cache::TileCache;
 use camera::MapCamera;
-use grid::PixelGrid;
+use grid::Grid;
 use loader::{TileLoadResult, TileLoader};
 use renderer::{TileRenderer, screen_to_ndc, size_to_ndc};
 use std::num::NonZeroUsize;
@@ -22,7 +22,6 @@ pub struct MapSystem {
     tile_cache: TileCache,
     tile_loader: TileLoader,
     tile_renderer: TileRenderer,
-    pub pixel_grid: PixelGrid,
 
     /// Tiles to render this frame (calculated in update)
     /// id, (x, y), (width, height)
@@ -45,15 +44,11 @@ impl MapSystem {
         let tile_loader = TileLoader::default();
         let tile_renderer = TileRenderer::new(device, texture_format);
 
-        // Pixel grid with ~10m cell size at equator
-        let pixel_grid = PixelGrid::new(device, texture_format, 0.0001);
-
         Self {
             camera,
             tile_cache,
             tile_loader,
             tile_renderer,
-            pixel_grid,
             render_tiles: Vec::new(),
         }
     }
@@ -115,19 +110,17 @@ impl MapSystem {
                     .push((*tile_id, (ndc_x, ndc_y), (ndc_w, ndc_h)));
             }
         }
-
-        // 5. Update pixel grid
-        self.pixel_grid.update(device, &self.camera);
     }
 
     /// Render the map
     pub fn render<'a>(&'a mut self, render_pass: &mut wgpu::RenderPass<'a>, device: &wgpu::Device) {
         // Render tiles
-        self.tile_renderer
-            .render(render_pass, device, &self.render_tiles, &mut self.tile_cache);
-
-        // Render pixel grid overlay
-        self.pixel_grid.render(render_pass);
+        self.tile_renderer.render(
+            render_pass,
+            device,
+            &self.render_tiles,
+            &mut self.tile_cache,
+        );
     }
 
     /// Handle viewport resize

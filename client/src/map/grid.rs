@@ -1,93 +1,80 @@
-//! Pixel grid overlay for drawing on the map
+use wgpu::{
+    BindGroupDescriptor, BindGroupLayoutDescriptor, BindGroupLayoutEntry, include_wgsl,
+    util::{BufferInitDescriptor, DeviceExt},
+    wgc::device::queue,
+};
 
-use bytemuck::{Pod, Zeroable};
-use std::collections::HashMap;
-use wgpu::include_wgsl;
-use wgpu::util::DeviceExt;
+use crate::map::camera::MapCamera;
 
 /// Grid vertex for colored quads
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
-pub struct GridVertex {
-    pub position: [f32; 3],
-    pub color: [f32; 4],
-}
-
-impl GridVertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![
-        0 => Float32x3,
-        1 => Float32x4,
-    ];
-
-    pub fn desc() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<GridVertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &Self::ATTRIBS,
-        }
-    }
-}
-
-/// A single pixel in the grid
-#[derive(Clone, Copy, Debug)]
-pub struct Pixel {
-    pub color: [f32; 4], // RGBA
-}
-
-impl Default for Pixel {
-    fn default() -> Self {
-        Self {
-            color: [0.0, 0.0, 0.0, 0.0], // Transparent
-        }
-    }
-}
-
-/// Grid coordinates (world-space pixel position)
-#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
-pub struct GridCoord {
-    pub x: i64,
-    pub y: i64,
-}
-
-
-/// Pixel grid overlay system
-pub struct PixelGrid {
-    /// Stored pixels (sparse storage)
-    pixels: HashMap<GridCoord, Pixel>,
-
-    /// Grid cell size in world units (degrees)
-    pub cell_size: f64,
-
+pub struct Grid {
     /// Render pipeline
     render_pipeline: wgpu::RenderPipeline,
-
-    /// Cached vertex buffer (rebuilt when pixels change)
-    vertex_buffer: Option<wgpu::Buffer>,
-    vertex_count: u32,
-
-    /// Dirty flag for buffer rebuild
-    dirty: bool,
+    camera_position_buffer: wgpu::Buffer,
+    viewport_size_buffer: wgpu::Buffer,
+    zoom_level_buffer: wgpu::Buffer,
+    bind_group: wgpu::BindGroup,
 }
 
-impl PixelGrid {
-    /// Create a new pixel grid
-    /// cell_size: size of each pixel in degrees (e.g., 0.0001 for ~10m at equator)
-    pub fn new(device: &wgpu::Device, texture_format: wgpu::TextureFormat, cell_size: f64) -> Self {
+impl Grid {
+    /// Create a new pixel grid overlay
+    pub fn new(
+        camera: &MapCamera,
+        device: &wgpu::Device,
+        texture_format: wgpu::TextureFormat,
+    ) -> Self {
+        // Load shaders
         let shader = device.create_shader_module(include_wgsl!("../shader/grid.wgsl"));
 
+        let layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Some("grid_bind_group_layout"),
+            entries: &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        });
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Grid Pipeline Layout"),
-            bind_group_layouts: &[],
+            label: Some("grid_pipeline_layout"),
+            bind_group_layouts: &[&layout],
             push_constant_ranges: &[],
         });
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Grid Render Pipeline"),
+            label: Some("grid_render_pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[GridVertex::desc()],
+                buffers: &[],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -115,151 +102,72 @@ impl PixelGrid {
             cache: None,
         });
 
+        let camera_position_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("camera_position_buffer"),
+            contents: bytemuck::cast_slice(&[camera.center.0, camera.center.1]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let viewport_size_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("viewport_size_buffer"),
+            contents: bytemuck::cast_slice(&[camera.viewport_width, camera.viewport_height]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let zoom_level_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("zoom_level_buffer"),
+            contents: bytemuck::cast_slice(&[camera.zoom as f32]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
+            label: Some("grid_bind_group"),
+            layout: &layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: camera_position_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: viewport_size_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: zoom_level_buffer.as_entire_binding(),
+                },
+            ],
+        });
+
         Self {
-            pixels: HashMap::new(),
-            cell_size,
             render_pipeline,
-            vertex_buffer: None,
-            vertex_count: 0,
-            dirty: false,
+            camera_position_buffer,
+            viewport_size_buffer,
+            zoom_level_buffer,
+            bind_group,
         }
     }
 
-    /// Convert grid coordinates to world coordinates (center of cell)
-    fn grid_to_world(&self, coord: &GridCoord) -> (f64, f64) {
-        let lon = (coord.x as f64 + 0.5) * self.cell_size;
-        let lat = (coord.y as f64 + 0.5) * self.cell_size;
-        (lon, lat)
-    }
-
-    /// Update vertex buffer if dirty
-    pub fn update(
-        &mut self,
-        device: &wgpu::Device,
-        camera: &super::camera::MapCamera,
-    ) {
-        if !self.dirty && self.vertex_buffer.is_some() {
-            return;
-        }
-
-        let mut vertices = Vec::new();
-
-        for (coord, pixel) in &self.pixels {
-            // Convert grid to world coordinates
-            let (lon, lat) = self.grid_to_world(coord);
-
-            // Check if visible (rough culling)
-            let (center_lon, center_lat) = camera.center;
-            let view_range = 180.0 / 2.0_f64.powf(camera.zoom); // Approximate visible range
-
-            if (lon - center_lon).abs() > view_range * 2.0
-                || (lat - center_lat).abs() > view_range * 2.0
-            {
-                continue;
-            }
-
-            // Convert to screen coordinates, then to NDC
-            // This is simplified - in production you'd use proper projection
-            let half_cell = self.cell_size / 2.0;
-
-            // Get screen position for the cell corners
-            let corners = [
-                (lon - half_cell, lat - half_cell), // Bottom-left
-                (lon + half_cell, lat - half_cell), // Bottom-right
-                (lon + half_cell, lat + half_cell), // Top-right
-                (lon - half_cell, lat + half_cell), // Top-left
-            ];
-
-            // Convert corners to screen positions
-            let screen_corners: Vec<(f32, f32)> = corners
-                .iter()
-                .map(|(lo, la)| world_to_screen(*lo, *la, camera))
-                .collect();
-
-            // Create two triangles for the quad
-            let color = pixel.color;
-
-            // Triangle 1: 0, 1, 2
-            vertices.push(GridVertex {
-                position: [screen_corners[0].0, screen_corners[0].1, 0.0],
-                color,
-            });
-            vertices.push(GridVertex {
-                position: [screen_corners[1].0, screen_corners[1].1, 0.0],
-                color,
-            });
-            vertices.push(GridVertex {
-                position: [screen_corners[2].0, screen_corners[2].1, 0.0],
-                color,
-            });
-
-            // Triangle 2: 0, 2, 3
-            vertices.push(GridVertex {
-                position: [screen_corners[0].0, screen_corners[0].1, 0.0],
-                color,
-            });
-            vertices.push(GridVertex {
-                position: [screen_corners[2].0, screen_corners[2].1, 0.0],
-                color,
-            });
-            vertices.push(GridVertex {
-                position: [screen_corners[3].0, screen_corners[3].1, 0.0],
-                color,
-            });
-        }
-
-        self.vertex_count = vertices.len() as u32;
-
-        if !vertices.is_empty() {
-            self.vertex_buffer = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Grid Vertex Buffer"),
-                contents: bytemuck::cast_slice(&vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            }));
-        } else {
-            self.vertex_buffer = None;
-        }
-
-        self.dirty = false;
-    }
-
-    /// Render the grid overlay
     pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
-        if self.vertex_count == 0 {
-            return;
-        }
-
-        if let Some(ref buffer) = self.vertex_buffer {
-            render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_vertex_buffer(0, buffer.slice(..));
-            render_pass.draw(0..self.vertex_count, 0..1);
-        }
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(0, &self.bind_group, &[]);
+        render_pass.draw(0..6, 0..1);
     }
-}
 
-/// Convert world coordinates to NDC screen position
-fn world_to_screen(lon: f64, lat: f64, camera: &super::camera::MapCamera) -> (f32, f32) {
-    use super::tile::lon_lat_to_tile_f64;
+    pub fn update(&self, queue: &wgpu::Queue, camera: &MapCamera) {
+        // Update camera position
+        let data = [camera.center.0 as f32, camera.center.1 as f32];
+        let camera_position_data = bytemuck::cast_slice(&data);
+        queue.write_buffer(&self.camera_position_buffer, 0, camera_position_data);
 
-    let z = camera.tile_zoom();
-    let scale = camera.zoom_scale();
-    let tile_size = super::camera::TILE_SIZE * scale;
+        // Update viewport size
+        let data = [camera.viewport_width, camera.viewport_height];
+        let viewport_size_data = bytemuck::cast_slice(&data);
+        queue.write_buffer(&self.viewport_size_buffer, 0, viewport_size_data);
 
-    // Get tile coordinates
-    let (tx, ty) = lon_lat_to_tile_f64(lon, lat, z);
-    let (cx, cy) = lon_lat_to_tile_f64(camera.center.0, camera.center.1, z);
-
-    // Relative position
-    let rel_x = tx - cx;
-    let rel_y = ty - cy;
-
-    // Screen position (centered)
-    let screen_x = (camera.viewport_width as f64 / 2.0) + (rel_x * tile_size);
-    let screen_y = (camera.viewport_height as f64 / 2.0) + (rel_y * tile_size);
-
-    // Convert to NDC
-    let ndc_x = (screen_x / camera.viewport_width as f64) as f32 * 2.0 - 1.0;
-    let ndc_y = 1.0 - (screen_y / camera.viewport_height as f64) as f32 * 2.0;
-
-    (ndc_x, ndc_y)
+        // Update zoom level
+        let data = [camera.zoom as f32];
+        let zoom_level_data = bytemuck::cast_slice(&data);
+        queue.write_buffer(&self.zoom_level_buffer, 0, zoom_level_data);
+    }
 }

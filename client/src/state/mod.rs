@@ -12,7 +12,8 @@ use winit::window::Window;
 use wasm_bindgen::prelude::*;
 
 use crate::app::Configuration;
-use crate::map::MapSystem;
+use crate::map::grid::Grid;
+use crate::map::{self, MapSystem};
 use winit::dpi::PhysicalSize;
 use winit::event::{DeviceEvent, ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 
@@ -32,6 +33,7 @@ pub struct State {
 
     // Map system
     map_system: MapSystem,
+    grid: Grid,
 
     // Mouse state for panning
     mouse_pressed: bool,
@@ -125,6 +127,8 @@ impl State {
             configuration.tiles,
         );
 
+        let grid = Grid::new(&map_system.camera, &device, texture_format);
+
         Ok(Self {
             window,
             surface,
@@ -138,6 +142,7 @@ impl State {
             egui_state,
             draw_egui: true,
             map_system,
+            grid,
             mouse_pressed: false,
             last_mouse_pos: None,
             current_mouse_pos: (0.0, 0.0),
@@ -226,6 +231,8 @@ impl State {
     pub fn update(&mut self) {
         // Update map system
         self.map_system.update(&self.device, &self.queue);
+        // Update grid overlay
+        self.grid.update(&self.queue, &self.map_system.camera);
     }
 
     fn draw_egui(&mut self) -> FullOutput {
@@ -345,6 +352,7 @@ impl State {
             });
 
             self.map_system.render(&mut render_pass, &self.device);
+            self.grid.render(&mut render_pass);
             let mut render_pass = render_pass.forget_lifetime();
             if self.draw_egui {
                 self.ui_renderer
