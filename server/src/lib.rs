@@ -128,10 +128,7 @@ pub fn draw(draw_request: Json<DrawRequest>) -> http::Status {
 }
 
 #[get("/drawing/<chunkx>/<chunky>/<zoom_lv>")]
-pub fn get_drawing(chunkx: i32, chunky: i32, zoom_lv: u8) -> Result<Vec<u8>, http::Status> {
-    //위치를 기준으로 쿼리해서
-    
-    //sample data
+pub fn get_drawing(chunkx: i32, chunky: i32, zoom_lv: u8) -> Result<PngResponse, Status> {
     let sample_data = vec![
         PixelData {
             pixel: Pixel {
@@ -149,7 +146,7 @@ pub fn get_drawing(chunkx: i32, chunky: i32, zoom_lv: u8) -> Result<Vec<u8>, htt
                 b: 0,
                 a: 255,
             },
-            coordinate: Coordinate { x: 20, y: 20 },
+            coordinate: Coordinate { x: 32, y: 32 },
         },
         PixelData {
             pixel: Pixel {
@@ -158,15 +155,59 @@ pub fn get_drawing(chunkx: i32, chunky: i32, zoom_lv: u8) -> Result<Vec<u8>, htt
                 b: 255,
                 a: 255,
             },
-            coordinate: Coordinate { x: 30, y: 30 },
+            coordinate: Coordinate { x: 56, y: 56 },
+        },
+        PixelData {
+            pixel: Pixel {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 255,
+            },
+            coordinate: Coordinate { x: 0, y: 0 },
+        },
+        PixelData {
+            pixel: Pixel {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 255,
+            },
+            coordinate: Coordinate { x: 63, y: 63 },
         },
     ];
 
     match generate_overlay_png(&sample_data) {
-        Ok(png_data) => Ok(png_data),
+        Ok(png_data) => {
+            write("test.png", &png_data).expect("TODO: panic message");
+            Ok(
+                PngResponse {
+                    data: png_data,
+                    filename: format!("{}_{}.png", chunkx, chunky),
+                })
+        },
         Err(e) => {
-            warn!("Error generating overlap png : {}", e);
-            Result::Err(http::Status::InternalServerError)
+            warn!("Error generating overlap png: {}", e);
+            Err(Status::InternalServerError)
         }
+    }
+}
+
+
+pub struct PngResponse {
+    data: Vec<u8>,
+    filename: String,
+}
+
+impl<'r> Responder<'r, 'static> for PngResponse {
+    fn respond_to(self, _req: &'r Request<'_>) -> response::Result<'static> {
+        Response::build()
+            .header(ContentType::PNG)
+            .header(rocket::http::Header::new(
+                "Content-Disposition",
+                format!("inline; filename=\"{}\"", self.filename),
+            ))
+            .sized_body(self.data.len(), Cursor::new(self.data))
+            .ok()
     }
 }
