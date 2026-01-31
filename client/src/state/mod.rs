@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use egui::{Context, FullOutput, TopBottomPanel};
+use egui::{Context, FullOutput, Slider, TopBottomPanel, Widget};
 use egui_wgpu::{Renderer, RendererOptions, ScreenDescriptor};
 use wgpu::{
     Backends, ExperimentalFeatures, Features, Instance, InstanceDescriptor, MemoryHints,
@@ -13,7 +13,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::app::Configuration;
 use crate::map::grid::Grid;
-use crate::map::{self, MapSystem};
+use crate::map::MapSystem;
 use winit::dpi::PhysicalSize;
 use winit::event::{DeviceEvent, ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 
@@ -204,7 +204,7 @@ impl State {
             WindowEvent::MouseWheel { delta, .. } => {
                 let zoom_delta = match delta {
                     MouseScrollDelta::LineDelta(_, y) => *y as f64 * 0.5,
-                    MouseScrollDelta::PixelDelta(pos) => pos.y as f64 * 0.01,
+                    MouseScrollDelta::PixelDelta(pos) => pos.y * 0.01,
                 };
                 let (mx, my) = self.current_mouse_pos;
                 self.map_system.zoom_at(zoom_delta, mx, my);
@@ -229,10 +229,11 @@ impl State {
     }
 
     pub fn update(&mut self) {
-        // Update map system
         self.map_system.update(&self.device, &self.queue);
-        // Update grid overlay
-        self.grid.update(&self.queue, &self.map_system.camera);
+
+        if self.grid.is_enabled {
+            self.grid.update(&self.queue, &self.map_system.camera);
+        }
     }
 
     fn draw_egui(&mut self) -> FullOutput {
@@ -264,6 +265,14 @@ impl State {
                     cache_stats.max_tiles,
                     (cache_stats.tile_count as f32 / cache_stats.max_tiles.get() as f32) * 100.0
                 ));
+
+                let mut temp = map_zoom.fract();
+                if Slider::new(&mut temp, 0.0..=0.99).ui(ui).changed() {
+                    let decimal = map_zoom.floor();
+                    let new_value = decimal + temp;
+                    self.map_system.camera.zoom = new_value;
+                }
+                ui.checkbox(&mut self.grid.is_enabled, "Grid");
                 if pending > 0 {
                     ui.separator();
                     ui.label(format!("Loading: {}", pending));
@@ -352,7 +361,10 @@ impl State {
             });
 
             self.map_system.render(&mut render_pass, &self.device);
-            self.grid.render(&mut render_pass);
+
+            if self.grid.is_enabled {
+                self.grid.render(&mut render_pass);
+            }
             let mut render_pass = render_pass.forget_lifetime();
             if self.draw_egui {
                 self.ui_renderer

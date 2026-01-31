@@ -1,5 +1,5 @@
 use crate::state::State;
-use log::{debug, error, info};
+use log::{debug, error};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use winit::application::ApplicationHandler;

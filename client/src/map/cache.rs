@@ -13,7 +13,7 @@ pub enum TileType {
     /// Standard OSM map tile (typically 256x256)
     #[default]
     MapTile,
-    /// Pixel art overlay (variable size)
+    /// Pixel art overlay (32x32)
     PixelArt,
 }
 

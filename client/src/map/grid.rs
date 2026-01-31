@@ -1,7 +1,6 @@
 use wgpu::{
     BindGroupDescriptor, BindGroupLayoutDescriptor, BindGroupLayoutEntry, include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
-    wgc::device::queue,
 };
 
 use crate::map::camera::MapCamera;
@@ -14,6 +13,7 @@ pub struct Grid {
     viewport_size_buffer: wgpu::Buffer,
     zoom_level_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
+    pub is_enabled: bool,
 }
 
 impl Grid {
@@ -145,6 +145,7 @@ impl Grid {
             viewport_size_buffer,
             zoom_level_buffer,
             bind_group,
+            is_enabled: false,
         }
     }
 

@@ -10,7 +10,6 @@ pub mod tile;
 use crate::map::cache::TileType;
 use cache::TileCache;
 use camera::MapCamera;
-use grid::Grid;
 use loader::{TileLoadResult, TileLoader};
 use renderer::{TileRenderer, screen_to_ndc, size_to_ndc};
 use std::num::NonZeroUsize;
