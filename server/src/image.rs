@@ -2,7 +2,7 @@ use crate::PixelData;
 use image::{ImageBuffer, Rgba};
 
 //64 x 64 data only
-pub fn generate_overlay_png(pixels: &[PixelData]) -> Vec<u8> {
+pub fn generate_overlay_png(pixels: &[PixelData]) -> Result<Vec<u8>, &'static str> {
     let mut img = ImageBuffer::<Rgba<u8>, Vec<u8>>::new(64, 64);
 
     for pixel in pixels {
@@ -16,7 +16,6 @@ pub fn generate_overlay_png(pixels: &[PixelData]) -> Vec<u8> {
     }
 
     let mut buf = Vec::new();
-    img.write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
-        .unwrap();
-    buf
+    img.write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png).map_err(|_| "Could not write to PNG file")?;
+    Ok(buf)
 }
