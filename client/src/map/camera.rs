@@ -1,9 +1,9 @@
 //! Map camera for viewport management, panning, and zooming
 
-use crate::map::cache::MAX_ZOOM;
 use super::tile::{
     TileId, clamp_latitude, is_valid_tile_y, lon_lat_to_tile_f64, normalize_longitude, wrap_tile_x,
 };
+use crate::map::cache::MAX_ZOOM;
 
 /// Tile size in pixels (standard OSM tile size)
 pub const TILE_SIZE: f64 = 256.0;
@@ -71,7 +71,7 @@ impl MapCamera {
     /// Zoom at a specific screen point
     pub fn zoom_at(&mut self, delta: f64, screen_x: f32, screen_y: f32) {
         let old_zoom = self.zoom;
-        self.zoom = (self.zoom + delta).clamp(0.0, 19.0);
+        self.zoom = (self.zoom + delta).clamp(0.0, MAX_ZOOM as f64);
 
         if (self.zoom - old_zoom).abs() < 0.001 {
             return;

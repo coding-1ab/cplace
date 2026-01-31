@@ -31,9 +31,9 @@ type ResultReceiver = std::sync::mpsc::Receiver<TileLoadResult>;
 #[cfg(not(target_arch = "wasm32"))]
 type RequestSender = std::sync::mpsc::Sender<TileRequest>;
 
+use log::debug;
 #[cfg(target_arch = "wasm32")]
 use std::sync::{Arc, Mutex};
-use log::debug;
 
 #[cfg(target_arch = "wasm32")]
 type ResultReceiver = Arc<Mutex<Vec<TileLoadResult>>>;
@@ -270,26 +270,22 @@ impl TileLoader {
 
             // Decode image in async context (off main thread)
             let tile_result = match result {
-                Ok(bytes) => {
-                    match image::load_from_memory(&bytes) {
-                        Ok(img) => {
-                            let rgba = img.to_rgba8();
-                            let (width, height) = rgba.dimensions();
-                            TileLoadResult::Success(
-                                request.tile_id,
-                                DecodedTileData {
-                                    rgba: rgba.into_raw(),
-                                    width,
-                                    height,
-                                },
-                            )
-                        }
-                        Err(e) => TileLoadResult::Failed(
+                Ok(bytes) => match image::load_from_memory(&bytes) {
+                    Ok(img) => {
+                        let rgba = img.to_rgba8();
+                        let (width, height) = rgba.dimensions();
+                        TileLoadResult::Success(
                             request.tile_id,
-                            format!("Decode error: {}", e),
-                        ),
+                            DecodedTileData {
+                                rgba: rgba.into_raw(),
+                                width,
+                            },
+                        )
                     }
-                }
+                    Err(e) => {
+                        TileLoadResult::Failed(request.tile_id, format!("Decode error: {}", e))
+                    }
+                },
                 Err(err) => TileLoadResult::Failed(request.tile_id, err),
             };
 
