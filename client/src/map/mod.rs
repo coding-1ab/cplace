@@ -17,7 +17,6 @@ use tile::TileId;
 
 /// Integrated map system
 pub struct MapSystem {
-    pub camera: MapCamera,
     tile_cache: TileCache,
     tile_loader: TileLoader,
     tile_renderer: TileRenderer,
@@ -32,19 +31,13 @@ impl MapSystem {
     pub fn new(
         device: &wgpu::Device,
         texture_format: wgpu::TextureFormat,
-        viewport_width: u32,
-        viewport_height: u32,
         tiles: NonZeroUsize,
     ) -> Self {
-        // Default camera: Seoul at zoom 12
-        let camera = MapCamera::new(126.9794, 37.5372, 14.0, viewport_width, viewport_height);
-
         let tile_cache = TileCache::new(tiles);
         let tile_loader = TileLoader::default();
         let tile_renderer = TileRenderer::new(device, texture_format);
 
         Self {
-            camera,
             tile_cache,
             tile_loader,
             tile_renderer,
@@ -53,9 +46,9 @@ impl MapSystem {
     }
 
     /// Update the map system (call each frame)
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+    pub fn update(&mut self, camera: &MapCamera, device: &wgpu::Device, queue: &wgpu::Queue) {
         // 1. Get visible tiles
-        let visible = self.camera.visible_tiles_with_buffer(1);
+        let visible = camera.visible_tiles_with_buffer(1);
 
         // 2. Request loading for tiles not in cache
         for tile_id in &visible {
@@ -85,24 +78,24 @@ impl MapSystem {
 
         // 4. Build render list with screen positions
         self.render_tiles.clear();
-        let tile_size = self.camera.tile_screen_size();
+        let tile_size = camera.tile_screen_size();
 
         for tile_id in &visible {
             // Only add to render list if cached
             if self.tile_cache.contains(tile_id) {
-                let (x, y) = self.camera.tile_to_screen(tile_id);
+                let (x, y) = camera.tile_to_screen(tile_id);
 
                 // Convert to NDC
                 let (ndc_x, ndc_y) = screen_to_ndc(
                     x,
                     y,
-                    self.camera.viewport_width,
-                    self.camera.viewport_height,
+                    camera.viewport_width,
+                    camera.viewport_height,
                 );
                 let (ndc_w, ndc_h) = size_to_ndc(
                     tile_size,
-                    self.camera.viewport_width,
-                    self.camera.viewport_height,
+                    camera.viewport_width,
+                    camera.viewport_height,
                 );
 
                 self.render_tiles
@@ -122,21 +115,6 @@ impl MapSystem {
         );
     }
 
-    /// Handle viewport resize
-    pub fn resize(&mut self, width: u32, height: u32) {
-        self.camera.set_viewport(width, height);
-    }
-
-    /// Pan the map by pixel delta
-    pub fn pan(&mut self, dx: f32, dy: f32) {
-        self.camera.pan(dx, dy);
-    }
-
-    /// Zoom at screen position
-    pub fn zoom_at(&mut self, delta: f64, screen_x: f32, screen_y: f32) {
-        self.camera.zoom_at(delta, screen_x, screen_y);
-    }
-
     /// Get cache statistics
     pub fn cache_stats(&self, zoom_label: usize) -> cache::CacheStats {
         self.tile_cache.stats(zoom_label)
@@ -145,15 +123,5 @@ impl MapSystem {
     /// Get pending tile count
     pub fn pending_tiles(&self) -> usize {
         self.tile_loader.pending_count()
-    }
-
-    /// Get current zoom level
-    pub fn zoom_level(&self) -> f64 {
-        self.camera.zoom
-    }
-
-    /// Get current center position
-    pub fn center(&self) -> (f64, f64) {
-        self.camera.center
     }
 }

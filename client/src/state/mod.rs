@@ -12,6 +12,7 @@ use winit::window::Window;
 use wasm_bindgen::prelude::*;
 
 use crate::app::Configuration;
+use crate::map::camera::MapCamera;
 use crate::map::grid::Grid;
 use crate::map::MapSystem;
 use winit::dpi::PhysicalSize;
@@ -32,6 +33,7 @@ pub struct State {
     draw_egui: bool,
 
     // Map system
+    camera: MapCamera,
     map_system: MapSystem,
     grid: Grid,
 
@@ -118,16 +120,17 @@ impl State {
             None,
         );
 
-        // Create map system
-        let map_system = MapSystem::new(
-            &device,
-            texture_format,
+        // Create camera and map system
+        let camera = MapCamera::new(
+            126.9794,
+            37.5372,
+            14.0,
             window.inner_size().width,
             window.inner_size().height,
-            configuration.tiles,
         );
+        let map_system = MapSystem::new(&device, texture_format, configuration.tiles);
 
-        let grid = Grid::new(&map_system.camera, &device, texture_format);
+        let grid = Grid::new(&camera, &device, texture_format);
 
         Ok(Self {
             window,
@@ -141,6 +144,7 @@ impl State {
             egui_ctx,
             egui_state,
             draw_egui: true,
+            camera,
             map_system,
             grid,
             mouse_pressed: false,
@@ -164,7 +168,7 @@ impl State {
         self.config.width = width;
         self.config.height = height;
         self.surface.configure(&self.device, &self.config);
-        self.map_system.resize(width, height);
+        self.camera.set_viewport(width, height);
     }
 
     pub fn on_window_event(&mut self, event: &WindowEvent) -> bool {
@@ -196,7 +200,7 @@ impl State {
                     if let Some((last_x, last_y)) = self.last_mouse_pos {
                         let dx = x - last_x;
                         let dy = y - last_y;
-                        self.map_system.pan(dx, dy);
+                        self.camera.pan(dx, dy);
                     }
                     self.last_mouse_pos = Some((x, y));
                 }
@@ -207,7 +211,7 @@ impl State {
                     MouseScrollDelta::PixelDelta(pos) => pos.y * 0.01,
                 };
                 let (mx, my) = self.current_mouse_pos;
-                self.map_system.zoom_at(zoom_delta, mx, my);
+                self.camera.zoom_at(zoom_delta, mx, my);
             }
             _ => {}
         }
@@ -221,7 +225,7 @@ impl State {
                 if self.mouse_pressed {
                     let dx = *dx as f32;
                     let dy = *dy as f32;
-                    self.map_system.pan(dx, dy);
+                    self.camera.pan(dx, dy);
                 }
             }
             _ => {}
@@ -229,10 +233,11 @@ impl State {
     }
 
     pub fn update(&mut self) {
-        self.map_system.update(&self.device, &self.queue);
+        self.map_system
+            .update(&self.camera, &self.device, &self.queue);
 
         if self.grid.is_enabled {
-            self.grid.update(&self.queue, &self.map_system.camera);
+            self.grid.update(&self.queue, &self.camera);
         }
     }
 
@@ -247,8 +252,8 @@ impl State {
 
     fn egui(&mut self, ctx: &Context) {
         // Update egui
-        let map_center = self.map_system.center();
-        let map_zoom = self.map_system.zoom_level();
+        let map_center = self.camera.center;
+        let map_zoom = self.camera.zoom;
         let cache_stats = self.map_system.cache_stats(map_zoom.floor() as usize);
         let pending = self.map_system.pending_tiles();
 
@@ -270,7 +275,7 @@ impl State {
                 if Slider::new(&mut temp, 0.0..=0.99).ui(ui).changed() {
                     let decimal = map_zoom.floor();
                     let new_value = decimal + temp;
-                    self.map_system.camera.zoom = new_value;
+                    self.camera.zoom = new_value;
                 }
                 ui.checkbox(&mut self.grid.is_enabled, "Grid");
                 if pending > 0 {
