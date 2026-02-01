@@ -3,10 +3,7 @@
 use super::tile::{
     TileId, clamp_latitude, is_valid_tile_y, lon_lat_to_tile_f64, normalize_longitude, wrap_tile_x,
 };
-use crate::map::cache::MAX_ZOOM;
-
-/// Tile size in pixels (standard OSM tile size)
-pub const TILE_SIZE: f64 = 256.0;
+use crate::map::cache::{MAX_ZOOM, TileType};
 
 /// Map camera state
 pub struct MapCamera {
@@ -51,7 +48,8 @@ impl MapCamera {
     pub fn meters_per_pixel(&self) -> f64 {
         let earth_circumference = 40075016.686; // meters
         let lat_rad = self.center.1.to_radians();
-        earth_circumference * lat_rad.cos() / (TILE_SIZE * 2.0_f64.powf(self.zoom))
+        earth_circumference * lat_rad.cos()
+            / (TileType::MapTile.dimensions() as f64 * 2.0_f64.powf(self.zoom))
     }
 
     /// Pan the map by pixel delta
@@ -101,7 +99,7 @@ impl MapCamera {
     pub fn visible_tiles_with_buffer(&self, buffer: i32) -> Vec<TileId> {
         let z = self.tile_zoom();
         let scale = self.zoom_scale();
-        let scaled_tile_size = TILE_SIZE * scale;
+        let scaled_tile_size = TileType::MapTile.dimensions() as f64 * scale;
 
         // Center tile position (fractional)
         let (cx, cy) = lon_lat_to_tile_f64(self.center.0, self.center.1, z);
@@ -138,7 +136,7 @@ impl MapCamera {
     pub fn tile_to_screen(&self, tile: &TileId) -> (f32, f32) {
         let z = self.tile_zoom();
         let scale = self.zoom_scale();
-        let scaled_tile_size = TILE_SIZE * scale;
+        let scaled_tile_size = TileType::MapTile.dimensions() as f64 * scale;
 
         // Center tile position (fractional)
         let (cx, cy) = lon_lat_to_tile_f64(self.center.0, self.center.1, z);
@@ -165,7 +163,7 @@ impl MapCamera {
     /// Get the screen size of a tile at current zoom
     pub fn tile_screen_size(&self) -> f32 {
         let scale = self.zoom_scale();
-        (TILE_SIZE * scale) as f32
+        (TileType::MapTile.dimensions() as f64 * scale) as f32
     }
 }
 

@@ -17,6 +17,16 @@ pub enum TileType {
     PixelArt,
 }
 
+impl TileType {
+    /// Get tile dimensions in pixels
+    pub fn dimensions(&self) -> u32 {
+        match self {
+            TileType::MapTile => 256,
+            TileType::PixelArt => 32,
+        }
+    }
+}
+
 /// Cached tile with GPU resources and metadata
 pub struct CachedTile {
     /// GPU texture (kept for ownership, used via bind_group)
@@ -26,7 +36,7 @@ pub struct CachedTile {
     #[allow(dead_code)]
     pub texture_view: wgpu::TextureView,
     pub bind_group: wgpu::BindGroup,
-    pub width: u32,
+
     /// Type of tile content
     pub tile_type: TileType,
 }
@@ -65,7 +75,8 @@ impl TileCache {
     }
 
     pub fn get(&mut self, tile_id: &TileId) -> Option<Arc<CachedTile>> {
-        self.levels.get_mut(tile_id.z as usize)
+        self.levels
+            .get_mut(tile_id.z as usize)
             .and_then(|cache| cache.0.get(tile_id).cloned())
     }
 

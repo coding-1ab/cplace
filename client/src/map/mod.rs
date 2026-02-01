@@ -4,6 +4,7 @@ pub mod cache;
 pub mod camera;
 pub mod grid;
 pub mod loader;
+pub mod pixelart;
 pub mod renderer;
 pub mod tile;
 
@@ -86,17 +87,10 @@ impl MapSystem {
                 let (x, y) = camera.tile_to_screen(tile_id);
 
                 // Convert to NDC
-                let (ndc_x, ndc_y) = screen_to_ndc(
-                    x,
-                    y,
-                    camera.viewport_width,
-                    camera.viewport_height,
-                );
-                let (ndc_w, ndc_h) = size_to_ndc(
-                    tile_size,
-                    camera.viewport_width,
-                    camera.viewport_height,
-                );
+                let (ndc_x, ndc_y) =
+                    screen_to_ndc(x, y, camera.viewport_width, camera.viewport_height);
+                let (ndc_w, ndc_h) =
+                    size_to_ndc(tile_size, camera.viewport_width, camera.viewport_height);
 
                 self.render_tiles
                     .push((*tile_id, (ndc_x, ndc_y), (ndc_w, ndc_h)));

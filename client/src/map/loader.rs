@@ -2,13 +2,15 @@
 
 use std::collections::HashSet;
 
+use crate::map::cache::TileType;
+
 use super::tile::TileId;
 
 /// Decoded tile image data ready for GPU upload
 #[derive(Debug)]
 pub struct DecodedTileData {
-    pub rgba: Vec<u8>,
-    pub width: u32,
+    pub data: Vec<u8>,
+    pub tiletype: TileType,
 }
 
 /// Result of a tile load operation
@@ -46,22 +48,21 @@ pub struct TileLoader {
     #[cfg(not(target_arch = "wasm32"))]
     request_tx: RequestSender,
     pending: HashSet<TileId>,
-    #[cfg(target_arch = "wasm32")]
-    user_agent: String,
+    tiletype: TileType,
     #[cfg(not(target_arch = "wasm32"))]
     _worker_handle: Option<std::thread::JoinHandle<()>>,
 }
 
 impl TileLoader {
     /// Create a new tile loader
-    pub fn new(user_agent: &str) -> Self {
+    pub fn new(tiletype: TileType) -> Self {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let (request_tx, request_rx) = std::sync::mpsc::channel::<TileRequest>();
             let (result_tx, result_rx) = std::sync::mpsc::channel::<TileLoadResult>();
 
             let _worker_handle = {
-                let user_agent = user_agent.to_string();
+                let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36".to_string();
                 Some(std::thread::spawn(move || {
                     Self::worker_thread(request_rx, result_tx, user_agent);
                 }))
@@ -71,6 +72,7 @@ impl TileLoader {
                 result_rx,
                 request_tx,
                 pending: HashSet::new(),
+                tiletype,
                 _worker_handle,
             }
         }
@@ -160,6 +162,7 @@ impl TileLoader {
     fn worker_thread(
         request_rx: std::sync::mpsc::Receiver<TileRequest>,
         result_tx: std::sync::mpsc::Sender<TileLoadResult>,
+        tiletype: TileType,
         user_agent: String,
     ) {
         let client = reqwest::blocking::Client::builder()
@@ -176,16 +179,66 @@ impl TileLoader {
                                 // Decode in background thread to avoid blocking main thread
                                 match image::load_from_memory(&bytes) {
                                     Ok(img) => {
-                                        let rgba = img.to_rgba8();
-                                        let (width, height) = rgba.dimensions();
-                                        assert_eq!(width, height);
-                                        TileLoadResult::Success(
-                                            request.tile_id,
-                                            DecodedTileData {
-                                                rgba: rgba.into_raw(),
-                                                width,
-                                            },
-                                        )
+                                        use image::GenericImageView;
+                                        let (width, height) = img.dimensions();
+                                        if width != height {
+                                            result_tx
+                                                .send(TileLoadResult::Failed(
+                                                    request.tile_id,
+                                                    "Non-square tile".to_string(),
+                                                ))
+                                                .unwrap();
+                                            continue;
+                                        }
+
+                                        match tiletype {
+                                            TileType::MapTile => {
+                                                let data = match img {
+                                                    image::DynamicImage::ImageRgba8(rgba_img) => {
+                                                        rgba_img
+                                                    }
+                                                    _ => {
+                                                        result_tx
+                                                            .send(TileLoadResult::Failed(
+                                                                request.tile_id,
+                                                                "Wrong image format".to_string(),
+                                                            ))
+                                                            .unwrap();
+                                                        continue;
+                                                    }
+                                                };
+
+                                                if width != TileType::MapTile.dimensions() {
+                                                    result_tx
+                                                        .send(TileLoadResult::Failed(
+                                                            request.tile_id,
+                                                            format!(
+                                                                "Invalid tile size: {}x{}",
+                                                                width, height
+                                                            ),
+                                                        ))
+                                                        .unwrap();
+                                                    continue;
+                                                }
+
+                                                TileLoadResult::Success(
+                                                    request.tile_id,
+                                                    DecodedTileData {
+                                                        data: data.into_raw(),
+                                                        tiletype: TileType::MapTile,
+                                                    },
+                                                )
+                                            }
+                                            TileType::PixelArt => {
+                                                result_tx
+                                                    .send(TileLoadResult::Failed(
+                                                        request.tile_id,
+                                                        "Wrong tiletype: PixelArt".to_string(),
+                                                    ))
+                                                    .unwrap();
+                                                continue;
+                                            }
+                                        }
                                     }
                                     Err(e) => TileLoadResult::Failed(
                                         request.tile_id,
@@ -293,13 +346,5 @@ impl TileLoader {
                 results.push(tile_result);
             }
         });
-    }
-}
-
-impl Default for TileLoader {
-    fn default() -> Self {
-        Self::new(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        )
     }
 }
