@@ -1,12 +1,15 @@
+use std::io::Cursor;
 use mmap_sync::synchronizer::Synchronizer;
 mod image;
 
 use crate::image::generate_overlay_png;
-use rocket::http;
+use rocket::{http, response, Request, Response};
 use rocket::log::private::{info, warn};
 use rocket::serde::json::Json;
 use rocket::{get, post};
 use std::time::Duration;
+use rocket::http::{ContentType, Status};
+use rocket::response::Responder;
 
 #[derive(serde::Deserialize, serde::Serialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy)]
 #[archive_attr(derive(bytecheck::CheckBytes))]
@@ -179,7 +182,7 @@ pub fn get_drawing(chunkx: i32, chunky: i32, zoom_lv: u8) -> Result<PngResponse,
 
     match generate_overlay_png(&sample_data) {
         Ok(png_data) => {
-            write("test.png", &png_data).expect("TODO: panic message");
+            // write("test.png", &png_data).expect("TODO: panic message");
             Ok(
                 PngResponse {
                     data: png_data,
