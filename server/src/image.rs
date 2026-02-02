@@ -1,6 +1,8 @@
 use crate::PixelData;
 use image::{ImageBuffer, Rgba};
 
+const ALPHA:u8 = 0xFF;
+
 //64 x 64 data only
 pub fn generate_overlay_png(pixels: &[PixelData]) -> Result<Vec<u8>, &'static str> {
     let mut img = ImageBuffer::<Rgba<u8>, Vec<u8>>::new(256, 256);
@@ -11,10 +13,9 @@ pub fn generate_overlay_png(pixels: &[PixelData]) -> Result<Vec<u8>, &'static st
         let r = pixel.pixel.r;
         let g = pixel.pixel.g;
         let b = pixel.pixel.b;
-        let a = pixel.pixel.a;
         for dy in 0..4 {
             for dx in 0..4 {
-                img.put_pixel(x + dx, y + dy, Rgba([r, g, b, a]));
+                img.put_pixel(x + dx, y + dy, Rgba([r, g, b, ALPHA]));
             }
         }
     }

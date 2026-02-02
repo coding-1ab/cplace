@@ -17,7 +17,6 @@ pub struct Pixel {
     pub r: u8,
     pub g: u8,
     pub b: u8,
-    pub a: u8,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -50,7 +49,7 @@ pub struct Chunk {
 impl Chunk {
     pub fn new() -> Self {
         Chunk {
-            pixels: [[Pixel { r: 0, g: 0, b: 0, a: 0 }; 64]; 64],
+            pixels: [[Pixel { r: 0, g: 0, b: 0}; 64]; 64],
         }
     }
 }
@@ -87,14 +86,13 @@ pub fn draw(draw_request: Json<DrawRequest>) -> http::Status {
     let mut chunk_data = if chunk_exists(chunk_x, chunk_y) {
         match unsafe { synchronizer.read::<Chunk>(true) } {
             Ok(archived) => {
-                let mut pixels = [[Pixel { r: 0, g: 0, b: 0, a: 0 }; 64]; 64];
+                let mut pixels = [[Pixel { r: 0, g: 0, b: 0 }; 64]; 64];
                 for (y, row) in archived.pixels.iter().enumerate() {
                     for (x, p) in row.iter().enumerate() {
                         pixels[y][x] = Pixel {
                             r: p.r,
                             g: p.g,
                             b: p.b,
-                            a: p.a,
                         };
                     }
                 }
@@ -114,7 +112,6 @@ pub fn draw(draw_request: Json<DrawRequest>) -> http::Status {
         r: pixel.r,
         g: pixel.g,
         b: pixel.b,
-        a: pixel.a,
     };
 
     match synchronizer.write(&chunk_data, Duration::from_secs(5)) {
@@ -138,7 +135,6 @@ pub fn get_drawing(chunkx: i32, chunky: i32, zoom_lv: u8) -> Result<PngResponse,
                 r: 255,
                 g: 0,
                 b: 0,
-                a: 255,
             },
             coordinate: Coordinate { x: 10, y: 10 },
         },
@@ -147,7 +143,6 @@ pub fn get_drawing(chunkx: i32, chunky: i32, zoom_lv: u8) -> Result<PngResponse,
                 r: 0,
                 g: 255,
                 b: 0,
-                a: 255,
             },
             coordinate: Coordinate { x: 32, y: 32 },
         },
@@ -156,7 +151,6 @@ pub fn get_drawing(chunkx: i32, chunky: i32, zoom_lv: u8) -> Result<PngResponse,
                 r: 0,
                 g: 0,
                 b: 255,
-                a: 255,
             },
             coordinate: Coordinate { x: 56, y: 56 },
         },
@@ -165,7 +159,6 @@ pub fn get_drawing(chunkx: i32, chunky: i32, zoom_lv: u8) -> Result<PngResponse,
                 r: 0,
                 g: 0,
                 b: 0,
-                a: 255,
             },
             coordinate: Coordinate { x: 0, y: 0 },
         },
@@ -174,7 +167,6 @@ pub fn get_drawing(chunkx: i32, chunky: i32, zoom_lv: u8) -> Result<PngResponse,
                 r: 0,
                 g: 0,
                 b: 0,
-                a: 255,
             },
             coordinate: Coordinate { x: 63, y: 63 },
         },
@@ -214,3 +206,4 @@ impl<'r> Responder<'r, 'static> for PngResponse {
             .ok()
     }
 }
+
