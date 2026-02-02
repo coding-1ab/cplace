@@ -127,8 +127,8 @@ pub fn draw(draw_request: Json<DrawRequest>) -> http::Status {
     }
 }
 
-#[get("/get_pxel_png/<chunkx>/<chunky>/<zoom_lv>")]
-pub fn get_drawing(chunkx: i32, chunky: i32, zoom_lv: u8) -> Result<PngResponse, Status> {
+#[get("/get_pixel_png/<chunk_x>/<chunk_y>/<zoom_lv>")]
+pub fn get_drawing(chunk_x: i32, chunk_y: i32, zoom_lv: u8) -> Result<PngResponse, Status> {
     let sample_data = vec![
         PixelData {
             pixel: Pixel {
@@ -178,7 +178,7 @@ pub fn get_drawing(chunkx: i32, chunky: i32, zoom_lv: u8) -> Result<PngResponse,
             Ok(
                 PngResponse {
                     data: png_data,
-                    filename: format!("{}_{}.png", chunkx, chunky),
+                    filename: format!("{}_{}.png", chunk_x, chunk_y),
                 })
         },
         Err(e) => {
@@ -188,7 +188,7 @@ pub fn get_drawing(chunkx: i32, chunky: i32, zoom_lv: u8) -> Result<PngResponse,
     }
 }
 
-#[get("/get_pxel_png/<chunk_x>/<chunk_y>/<zoom_lv>")]
+#[get("/get_pixel_png/<chunk_x>/<chunk_y>/<zoom_lv>")]
 pub fn get_draw_test(chunk_x: i32, chunk_y: i32, zoom_lv: u8) -> Result<PngResponse, Status> {
     //todo : zoom_lv 따라서 로딩청크 동적으로 변경 및 해상도 변경 (클라이언트측과 소통 필요)
     let mut pixels_vec = Vec::with_capacity(64 * 64);
