@@ -10,12 +10,10 @@ pub fn generate_overlay_png(pixels: &[PixelData]) -> Result<Vec<u8>, &'static st
     for pixel in pixels {
         let x = (pixel.coordinate.x * 4) as u32;
         let y = (pixel.coordinate.y * 4) as u32;
-        let r = pixel.pixel.r;
-        let g = pixel.pixel.g;
-        let b = pixel.pixel.b;
+        let color = &pixel.color;
         for dy in 0..4 {
             for dx in 0..4 {
-                img.put_pixel(x + dx, y + dy, Rgba([r, g, b, ALPHA]));
+                img.put_pixel(x + dx, y + dy, Rgba([r, g, b, ALPHA])); // 16진수 형태의 color 값을 넣으면 됩니다.
             }
         }
     }
